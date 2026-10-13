@@ -14,36 +14,29 @@ from pyrogram import Client, types
 
 class BotText:
 
-    start = """
-    Welcome to YouTube Download bot. Type /help for more information.
-    EU🇪🇺: @benny_2ytdlbot
-    SG🇸🇬：@benny_ytdlbot
-
-    Join https://t.me/ytdlbot0 for updates.\n\n"""
+    start = "Пришлите ссылку на видео (VK, OK, YouTube и др.) — я скачаю его и отправлю сюда.\nКачество: /settings\n\n"
 
     help = """
-1. For YouTube and any websites supported by yt-dlp, just send the link and we will engine and send it to you.
+1. Просто пришлите ссылку на видео — VK, OK.ru, YouTube и любые сайты, которые поддерживает yt-dlp.
 
-2. For specific links use `/spdl {URL}`. More info at https://github.com/tgbot-collection/ytdlbot#supported-websites 
+2. Качество и формат отправки — /settings. Для длинных видео выбирайте Medium или Low: Telegram принимает файлы до 2 ГБ.
 
-3. If the bot doesn't work, try again or join https://t.me/ytdlbot0 for updates.
-
-4. Want to deploy it yourself?\nHere's the source code: https://github.com/tgbot-collection/ytdlbot
+3. Для Instagram, Pixeldrain и KrakenFiles: `/spdl ссылка`.
     """
 
-    about = "YouTube Downloader by @BennyThink.\n\nOpen source on GitHub: https://github.com/tgbot-collection/ytdlbot"
+    about = "Приватный бот на базе ytdlbot и yt-dlp: https://github.com/tgbot-collection/ytdlbot"
 
     settings = """
-Please choose the preferred format and video quality for your video. These settings only **apply to YouTube videos**.
-High: 1080P
-Medium: 720P
-Low: 480P
+Выберите качество и способ отправки видео.
+High: до 1080p
+Medium: до 720p
+Low: до 480p
 
-If you choose to send the video as a document, Telegram client will not be able stream it.
+Если отправлять видео документом, Telegram не сможет проигрывать его без скачивания.
 
-Your current settings:
-Video quality: {}
-Sending type: {}
+Сейчас:
+Качество: {}
+Отправка: {}
 """
 
 

@@ -97,14 +97,8 @@ def private_use(func):
             logging.debug("%s, it's annoying me...🙄️ ", message.text)
             return
 
-        # authorized users check
-        if AUTHORIZED_USER:
-            users = [int(i) for i in AUTHORIZED_USER.split(",")]
-        else:
-            users = []
-
-        if users and chat_id and chat_id not in users:
-            message.reply_text("BotText.private", quote=True)
+        # authorized users check: OWNER + AUTHORIZED_USER, same list as auth_gate
+        if chat_id not in ALLOWED_IDS:
             return
 
         return func(client, message)
@@ -118,12 +112,11 @@ def start_handler(client: Client, message: types.Message):
     init_user(from_id)
     logging.info("%s welcome to youtube-dl bot!", message.from_user.id)
     client.send_chat_action(from_id, enums.ChatAction.TYPING)
-    free, paid = get_free_quota(from_id), get_paid_quota(from_id)
-    client.send_message(
-        from_id,
-        BotText.start + f"You have {free} free and {paid} paid quota.",
-        disable_web_page_preview=True,
-    )
+    text = BotText.start
+    if ENABLE_VIP:
+        free, paid = get_free_quota(from_id), get_paid_quota(from_id)
+        text += f"You have {free} free and {paid} paid quota."
+    client.send_message(from_id, text, disable_web_page_preview=True)
 
 
 @app.on_message(filters.command(["help"]))
@@ -282,14 +275,14 @@ def settings_handler(client: Client, message: types.Message):
     markup = types.InlineKeyboardMarkup(
         [
             [  # First row
-                types.InlineKeyboardButton("send as document", callback_data="document"),
-                types.InlineKeyboardButton("send as video", callback_data="video"),
-                types.InlineKeyboardButton("send as audio", callback_data="audio"),
+                types.InlineKeyboardButton("📄 Документом", callback_data="document"),
+                types.InlineKeyboardButton("🎬 Видео", callback_data="video"),
+                types.InlineKeyboardButton("🎵 Аудио", callback_data="audio"),
             ],
             [  # second row
-                types.InlineKeyboardButton("High Quality", callback_data="high"),
-                types.InlineKeyboardButton("Medium Quality", callback_data="medium"),
-                types.InlineKeyboardButton("Low Quality", callback_data="low"),
+                types.InlineKeyboardButton("High 1080p", callback_data="high"),
+                types.InlineKeyboardButton("Medium 720p", callback_data="medium"),
+                types.InlineKeyboardButton("Low 480p", callback_data="low"),
             ],
         ]
     )
