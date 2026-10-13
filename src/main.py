@@ -47,7 +47,7 @@ from database.model import (
     set_user_settings,
 )
 from engine import direct_entrance, youtube_entrance, special_download_entrance
-from utils import extract_url_and_name, sizeof_fmt, timeof_fmt
+from utils import extract_url_and_name, is_youtube, sizeof_fmt, timeof_fmt
 
 logging.info("Authorized users are %s", AUTHORIZED_USER)
 logging.getLogger("apscheduler.executors.default").propagate = False
@@ -66,6 +66,26 @@ def create_app(name: str, workers: int = 64) -> Client:
 
 
 app = create_app("main")
+
+# private mode: only OWNER and AUTHORIZED_USER can talk to the bot, for every handler
+ALLOWED_IDS = set(OWNER) | {int(i) for i in str(AUTHORIZED_USER or "").split(",") if i.strip()}
+
+
+@app.on_message(group=-1)
+def auth_gate(client: Client, message: types.Message):
+    uid = getattr(message.from_user, "id", None)
+    if uid in ALLOWED_IDS:
+        return
+    logging.warning("Rejected message from %s: %s", uid, getattr(message, "text", ""))
+    if message.chat.type == enums.ChatType.PRIVATE and (message.text or "").startswith("/start"):
+        message.reply_text(f"This is a private bot. Your Telegram ID: {uid}", quote=True)
+    message.stop_propagation()
+
+
+@app.on_callback_query(group=-1)
+def auth_gate_callback(client: Client, callback_query: types.CallbackQuery):
+    if callback_query.from_user.id not in ALLOWED_IDS:
+        callback_query.stop_propagation()
 
 
 def private_use(func):
@@ -342,7 +362,8 @@ def ytdl_handler(client: Client, message: types.Message):
 
 def check_link(url: str):
     ytdl = yt_dlp.YoutubeDL()
-    if re.findall(r"^https://www\.youtube\.com/channel/", url) or "list" in url:
+    # only YouTube playlists are rejected; vk.com/video...?list=... is a single video
+    if re.findall(r"^https://www\.youtube\.com/channel/", url) or ("list" in url and is_youtube(url)):
         # TODO maybe using ytdl.extract_info
         raise ValueError("Playlist or channel download are not supported at this moment.")
 

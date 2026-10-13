@@ -30,10 +30,14 @@ class YoutubeDownload(BaseDownloader):
         ]
 
     def _setup_formats(self) -> list | None:
-        if not is_youtube(self._url):
-            return [None]
-
         quality, format_ = get_quality_settings(self._chat_id), get_format_settings(self._chat_id)
+        if not is_youtube(self._url):
+            # VK, OK.ru and other sites: respect quality setting so long videos fit into Telegram's 2GB
+            if format_ == "audio" or quality == "audio":
+                return ["bestaudio/best"]
+            height = {"medium": 720, "low": 480}.get(quality, 1080)
+            return [f"bestvideo*[height<={height}]+bestaudio/best[height<={height}]/best"]
+
         # quality: high, medium, low, custom
         # format: audio, video, document
         formats = []
@@ -95,6 +99,7 @@ class YoutubeDownload(BaseDownloader):
             "restrictfilenames": False,
             "quiet": True,
             "match_filter": match_filter,
+            "noplaylist": True,
             "concurrent_fragments": 16,
             "buffersize": 4194304,
             "retries": 6,

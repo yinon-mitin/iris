@@ -179,3 +179,4 @@ reinforcement/*
 /ytdlbot/main.session-journal
 /src/main.session
 /src/main.session-journal
+data/
