@@ -1,213 +1,94 @@
-> **Fork of [tgbot-collection/ytdlbot](https://github.com/tgbot-collection/ytdlbot)** — private Russian-language edition.
->
-> - Private mode: only `OWNER` + `AUTHORIZED_USER` can use any command or button; strangers get their Telegram ID on `/start`.
-> - Simple Russian UI: texts, progress bar, statuses, settings menu with checkmarks, friendly error messages, `/` command menu.
-> - VK / OK.ru: quality setting applies to all sites (1080/720/480p), `?list=` video links accepted, full titles in captions and file names.
-> - yt-dlp **nightly**, auto-updated daily inside the container.
-> - Single container: SQLite + in-memory cache instead of MySQL + Redis (`docker compose up -d --build`).
+<p align="center">
+  <img src="assets/banner.png" alt="ytdlbot: ссылка превращается в видео" width="100%">
+</p>
 
-# ytdlbot
+<h1 align="center">
+  <img src="assets/icon.png" alt="" width="40" align="center">
+  ytdlbot · приватный видеобот
+</h1>
 
-[![docker image](https://github.com/tgbot-collection/ytdlbot/actions/workflows/builder.yaml/badge.svg)](https://github.com/tgbot-collection/ytdlbot/actions/workflows/builder.yaml)
-[![pdm-managed](https://img.shields.io/endpoint?url=https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fpdm-project%2F.github%2Fbadge.json)](https://pdm-project.org)
+<p align="center">
+  <b>Отправьте ссылку и получите видео прямо в Telegram.</b><br>
+  VK · Одноклассники · YouTube · Rutube · Дзен и сотни других сайтов
+</p>
 
-**YouTube Download Bot🚀🎬⬇️**
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
+  <img src="https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
+  <img src="https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose">
+  <img src="https://img.shields.io/badge/yt--dlp-nightly-red" alt="yt-dlp nightly">
+  <img src="https://img.shields.io/badge/Telegram-bot-26A5E4?logo=telegram&logoColor=white" alt="Telegram bot">
+</p>
 
-This Telegram bot allows you to download videos from YouTube and [other supported websites](#supported-websites).
+---
 
-# Usage
+## Зачем это нужно
 
-* EU🇪🇺: [https://t.me/benny_2ytdlbot](https://t.me/benny_2ytdlbot)
-* Singapore🇸🇬:[https://t.me/benny_ytdlbot](https://t.me/benny_ytdlbot)
+Скачать видео из VK или Одноклассников на удивление сложно, особенно если вы не айтишник.
+Сайты-«качалки» обвешаны рекламой. Публичные Telegram-боты требуют подписаться на каналы,
+вводят лимиты, пропадают, и все ваши ссылки проходят через чужой сервер.
 
-* Join Telegram Channel https://t.me/ytdlbot0 for updates.
+**ytdlbot** — это ваш собственный бот. Он работает на домашнем компьютере или недорогом VPS,
+пускает только тех, кого вы добавили, и устроен так просто, что разберётся даже бабушка:
 
-Just send a link directly to the bot.
+> 1️⃣ скопировать ссылку → 2️⃣ отправить боту → 3️⃣ смотреть видео прямо в чате
 
-# Supported websites
+## Возможности
 
-* YouTube
-* Any websites [supported by yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+- 🔒 **Приватный.** Пользоваться ботом могут только владелец и люди из списка. Незнакомец увидит лишь свой Telegram ID, чтобы попросить доступ.
+- 🇷🇺 **Полностью на русском.** Понятные сообщения, прогресс-бар, меню настроек и объяснение ошибок человеческим языком.
+- 🎬 **Видео до 2 ГБ.** Работает через MTProto, без ограничения Bot API в 50 МБ. Ролик можно смотреть сразу в Telegram.
+- ⚙️ **Качество одной кнопкой.** 1080p, 720p или 480p для любого сайта, чтобы длинный фильм поместился в Telegram.
+- 🔗 **Ссылка внутри текста.** Можно переслать сообщение вида «смотри, https://vk.com/…», бот сам найдёт ссылку.
+- 🔄 **Всегда свежий yt-dlp.** Используется nightly-сборка с ежедневным автообновлением: когда VK или OK что-то меняют, исправление приходит само.
+- 📦 **Один контейнер.** Никаких MySQL и Redis: SQLite и кэш в памяти. Запуск одной командой.
 
-  ### Specific link downloader (Use /spdl for these links)
-    * Instagram (Videos, Photos, Reels, IGTV & carousel)
-    * Pixeldrain
-    * KrakenFiles
+## Как это выглядит
 
-# Features
+```text
+Вы:   https://vk.com/video-12345_67890
 
-1. fast download and upload.
-2. No ads
-3. download & upload progress bar
-4. download quality selection
-5. upload format: file, video, audio
-6. cache mechanism - download once for the same video.
-7. Supports multiple download engines (yt-dlp, aria2, requests).
+Бот:  ⬇️ Скачиваю видео…
+      Символические смыслы в конфликтах. Сцена из фильма «Развод по-американски»
+      ▓▓▓▓░░░░░░ 42%
+      200.3 МБ из 476.8 МБ
+      Скорость: 2.4 МБ/с
+      Осталось: 02:11
 
-> ## Limitations
-> Due to limitations on servers and bandwidth, there are some restrictions on this free service.
-> * Each user is limited to 1 free downloads every day.
-
-# Screenshots
-
-## Normal download
-
-![](assets/1.jpeg)
-
-## Instagram download
-
-![](assets/instagram.png)
-
-![](assets/2.jpeg)
-
-# How to deploy?
-
-This bot can be deployed on any platform that supports Python.
-
-## Run natively on your machine
-
-> Project use PDM to manage dependencies.
-
-1. <details>
-    <summary>Install PDM</summary>
-
-    You can install using pip: `pip install --user pdm`
-    or for detailed instructions: [Official Docs](https://pdm-project.org/en/latest/#installation)
-  
-   </details>
-
-2. Install modules using PDM: `pdm install`, or the old way use `pip install -r requirements.txt`
-
-<!-- [Nov 23, 2025] Note for the users to install a JS runtime for yt-dlp to work properly with YouTube. -->
-> [!IMPORTANT]
-> All users who intend to download from YouTube are strongly encouraged to install one of the JS runtimes (like deno) supported by yt-dlp.
-
-3. <details>
-    <summary>Setting up config file</summary>
-
-    ```
-    cp .env.example .env
-    ```
-    
-    Fill the fields in `.env`. For more information, see the comments in the `.env.example` file.
-
-    **- Required Fields**
-    - `WORKERS`: Number of workers (default is 100)
-    - `APP_ID`: Telegram app ID
-    - `APP_HASH`: Telegram app hash
-    - `BOT_TOKEN`: Your telegram bot token
-    - `OWNER`: Owner ID (separate by `,`)
-    - `AUTHORIZED_USER`: List of authorized users ids, (separate by `,`)
-    - `DB_DSN`: Your database URL (mysql+pymysql://user:pass@mysql/dbname) or SQLite (sqlite:///db.sqlite)
-    - `REDIS_HOST`: Redis host
-
-    **- Optional Fields**
-    - `ENABLE_FFMPEG`: Enable FFMPEG for video processing (True/False)
-    - `AUDIO_FORMAT`: Desired audio format (e.g.:- mp3, wav)
-    - `ENABLE_ARIA2`: Enable Aria2 for downloads (True/False)
-    - `RCLONE_PATH`: Path to Rclone executable
-    - `ENABLE_VIP`: Enable VIP features (True/False)
-    - `PROVIDER_TOKEN`: Payment provider token from Stripe
-    - `FREE_DOWNLOAD`: Free downloads allowed per user
-    - `RATE_LIMIT`: Rate limit for requests
-    - `TMPFILE_PATH`: Path for temporary/download files (ensure the directory exists and is writable)
-    - `TG_NORMAL_MAX_SIZE`: Maximum size for Telegram uploads in MB
-    - `CAPTION_URL_LENGTH_LIMIT`: Maximum URL length in captions
-    - `POTOKEN`: Your PO Token.  [PO-Token-Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)
-    - `BROWSERS`: Browser to handle 'cookies from browser', i.e. firefox
-  </details>
-
-4. Activate virtual environment that created by PDM: `source .venv/bin/activate`
-
-5. Finally run the bot: `python src/main.py`
-
-## Docker
-
-One line command to run the bot
-
-```shell
-docker run --env-file .env bennythink/ytdlbot
+Бот:  🎬 Символические смыслы в конфликтах. Сцена из фильма «Развод по-американски»
+      ⏱ 12:34   📐 1280×720
+      🔗 https://vk.com/video-12345_67890
+      ✅ Готово!
 ```
 
-# Command
+Меню команд (кнопка «/» в Telegram):
 
-```
-start - Let's start
-about - What's this bot?
-help - Help
-spdl - Use to download specific link downloader links
-direct - Download using aria2/requests engines
-ytdl - Download video in group
-settings - Set your preference
-unsub - Unsubscribe from YouTube Channel
-ping - Ping the Bot
-stats - Server and bot stats
-buy - Buy quota.
-```
+| Команда     | Что делает                                     |
+|-------------|------------------------------------------------|
+| `/start`    | Короткая инструкция                            |
+| `/settings` | Качество видео и способ отправки (видео, файл, звук) |
+| `/help`     | Помощь и ответы на частые вопросы              |
 
-# Test data
+## Быстрый старт
 
-<details><summary>Tap to expand</summary>
-
-## Test video
-
-https://www.youtube.com/watch?v=V3RtA-1b_2E
-
-## Test Playlist
-
-https://www.youtube.com/playlist?list=PL1Hdq7xjQCJxQnGc05gS4wzHWccvEJy0w
-
-## Test twitter
-
-https://twitter.com/nitori_sayaka/status/1526199729864200192
-https://twitter.com/BennyThinks/status/1475836588542341124
-
-## Test instagram
-
-* single image: https://www.instagram.com/p/CXpxSyOrWCA/
-* single video: https://www.instagram.com/p/Cah_7gnDVUW/
-* reels: https://www.instagram.com/p/C0ozGsjtY0W/
-* image carousel: https://www.instagram.com/p/C0ozPQ5o536/
-* video and image carousel: https://www.instagram.com/p/C0ozhsVo-m8/
-
-## Test Pixeldrain
-
-https://pixeldrain.com/u/765ijw9i
-
-## Test KrakenFiles
-
-https://krakenfiles.com/view/oqmSTF0T5t/file.html
-
-</details>
-
-# Donation
-
-Found this bot useful? You can donate to support the development of this bot.
-
-## Donation Platforms
-
-* [Buy me a coffee](https://www.buymeacoffee.com/bennythink)
-* [GitHub Sponsor](https://github.com/sponsors/BennyThink)
-
-## Stripe
-
-You can choose to donate via Stripe.
-
-| USD(Card, Apple Pay and Google Pay)              | CNY(Card, Apple Pay, Google Pay and Alipay)      |
-|--------------------------------------------------|--------------------------------------------------|
-| [USD](https://buy.stripe.com/cN203sdZB98RevC3cd) | [CNY](https://buy.stripe.com/dR67vU4p13Ox73a6oq) |
-| ![](assets/USD.png)                              | ![](assets/CNY.png)                              |
-
-## Cryptocurrency
-
-TRX or USDT(TRC20)
-
-![](assets/tron.png)
-
-```
-TF9peZjC2FYjU4xNMPg3uP4caYLJxtXeJS
+```bash
+git clone https://github.com/yinon-mitin/ytdlbot.git && cd ytdlbot
+cp .env.example .env        # впишите токен бота, APP_ID/APP_HASH и свой Telegram ID
+docker compose up -d --build
 ```
 
-# License
+📖 **Подробная инструкция:** [docs/INSTALL.md](docs/INSTALL.md). Там описано, где взять ключи, как добавить пользователей, обновляться и решать типичные проблемы.
 
-Apache License 2.0
+## Благодарности и лицензия
+
+Проект основан на [**ytdlbot**](https://github.com/tgbot-collection/ytdlbot) от
+[Benny (@BennyThink)](https://github.com/BennyThink) и сообщества
+[tgbot-collection](https://github.com/tgbot-collection). Большое спасибо автору за отличную основу.
+
+Что изменено относительно оригинала: приватный режим для всех команд, русский интерфейс,
+поддержка качества и полных названий для VK и OK, автообновление yt-dlp nightly и упрощённый
+запуск в одном контейнере. Подробнее — в файле [NOTICE](NOTICE) и в [истории коммитов](https://github.com/yinon-mitin/ytdlbot/commits/master).
+
+Распространяется по лицензии [Apache License 2.0](LICENSE), как и оригинальный проект.
+
+Скачивайте только то, на что у вас есть право: уважайте авторов видео и правила сайтов.

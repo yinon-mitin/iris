@@ -1,0 +1,16 @@
+ytdlbot — private Russian-language edition
+https://github.com/yinon-mitin/ytdlbot
+Copyright 2026 Yinon Mitin
+
+This project is a modified version of ytdlbot
+https://github.com/tgbot-collection/ytdlbot
+Copyright Benny <benny.think@gmail.com> and the tgbot-collection contributors
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Changes made in this edition (see git history for details):
+- Private mode: every command and button is limited to OWNER and AUTHORIZED_USER
+- Russian user interface: texts, progress bar, statuses, settings menu, error messages, command menu
+- Quality setting and full titles for VK, OK.ru and other non-YouTube sites
+- yt-dlp nightly with automatic daily updates inside the container
+- Single-container setup: SQLite and in-memory cache instead of MySQL and Redis
+- Removed upstream donation, deployment and Docker Hub publishing files
