@@ -4,13 +4,13 @@
 # ytdlbot - types.py
 
 import hashlib
+import html
 import json
 import logging
 import re
 import tempfile
 import uuid
 from abc import ABC, abstractmethod
-from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 from typing import final
@@ -18,9 +18,8 @@ from typing import final
 import ffmpeg
 import filetype
 from pyrogram import enums, types
-from tqdm import tqdm
 
-from config import TG_NORMAL_MAX_SIZE, Types
+from config import TG_NORMAL_MAX_SIZE, BotText, Types
 from database import Redis
 from database.model import (
     check_quota,
@@ -31,6 +30,7 @@ from database.model import (
     use_quota,
 )
 from engine.helper import debounce, sizeof_fmt
+from utils import FriendlyError, duration_fmt
 
 
 def generate_input_media(file_paths: list, cap: str) -> list:
@@ -81,38 +81,20 @@ class BaseDownloader(ABC):
     def __remove_bash_color(text):
         return re.sub(r"\u001b|\[0;94m|\u001b\[0m|\[0;32m|\[0m|\[0;33m", "", text)
 
-    @staticmethod
-    def __tqdm_progress(desc, total, finished, speed="", eta=""):
-        def more(title, initial):
-            if initial:
-                return f"{title} {initial}"
-            else:
-                return ""
-
-        f = StringIO()
-        tqdm(
-            total=total,
-            initial=finished,
-            file=f,
-            ascii=False,
-            unit_scale=True,
-            ncols=30,
-            bar_format="{l_bar}{bar} |{n_fmt}/{total_fmt} ",
-        )
-        raw_output = f.getvalue()
-        tqdm_output = raw_output.split("|")
-        progress = f"`[{tqdm_output[1]}]`"
-        detail = tqdm_output[2].replace("[A", "")
-        text = f"""
-    {desc}
-
-    {progress}
-    {detail}
-    {more("Speed:", speed)}
-    {more("ETA:", eta)}
-        """
-        f.close()
-        return text
+    def __progress_text(self, desc, total, finished, speed="", eta=""):
+        lines = [desc]
+        if title := getattr(self, "_title", None):
+            lines.append(f"<b>{html.escape(title)}</b>")
+        if total:
+            percent = max(0, min(100, int(finished * 100 / total)))
+            filled = percent // 10
+            lines.append(f"<code>{'▓' * filled}{'░' * (10 - filled)}</code> {percent}%")
+            lines.append(f"{sizeof_fmt(finished)} из {sizeof_fmt(total)}")
+        if speed and speed != "N/A":
+            lines.append(f"{BotText.speed}: {speed}")
+        if eta and eta not in ("N/A", "None", "Unknown"):
+            lines.append(f"{BotText.eta}: {eta}")
+        return "\n".join(lines)
 
     def download_hook(self, d: dict):
         if d["status"] == "downloading":
@@ -120,22 +102,24 @@ class BaseDownloader(ABC):
             total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
 
             if total > TG_NORMAL_MAX_SIZE:
-                msg = f"Your download file size {sizeof_fmt(total)} is too large for Telegram."
-                raise Exception(msg)
+                raise FriendlyError(BotText.too_large.format(size=sizeof_fmt(total)))
 
             # percent = remove_bash_color(d.get("_percent_str", "N/A"))
-            speed = self.__remove_bash_color(d.get("_speed_str", "N/A"))
-            eta = self.__remove_bash_color(d.get("_eta_str", d.get("eta")))
-            text = self.__tqdm_progress("Downloading...", total, downloaded, speed, eta)
+            if not getattr(self, "_title", None):
+                self._title = (d.get("info_dict") or {}).get("title")
+            speed = self.__remove_bash_color(str(d.get("_speed_str", "N/A"))).strip()
+            speed = speed.replace("KiB/s", " КБ/с").replace("MiB/s", " МБ/с").replace("GiB/s", " ГБ/с")
+            eta = self.__remove_bash_color(str(d.get("_eta_str", d.get("eta")))).strip()
+            text = self.__progress_text(BotText.downloading, total, downloaded, speed, eta)
             self.edit_text(text)
 
     def upload_hook(self, current, total):
-        text = self.__tqdm_progress("Uploading...", total, current)
+        text = self.__progress_text(BotText.uploading, total, current)
         self.edit_text(text)
 
     @debounce(5)
     def edit_text(self, text: str):
-        self._bot_msg.edit_text(text)
+        self._bot_msg.edit_text(text, parse_mode=enums.ParseMode.HTML)
 
     @abstractmethod
     def _setup_formats(self) -> list | None:
@@ -182,6 +166,7 @@ class BaseDownloader(ABC):
                 "chat_id": chat_id,
                 file_arg_name: files[0],
                 "caption": caption,
+                "parse_mode": enums.ParseMode.HTML,
                 "progress": self.upload_hook,
                 **kwargs,
             }
@@ -214,7 +199,10 @@ class BaseDownloader(ABC):
         except ffmpeg._run.Error:
             thumb = None
 
-        caption = f"{self._url}\n{filename}\n\nResolution: {width}x{height}\nDuration: {duration} seconds"
+        title = getattr(self, "_title", None) or Path(video_path).stem
+        caption = BotText.caption.format(
+            title=html.escape(title), duration=duration_fmt(duration), width=width, height=height, url=html.escape(self._url)
+        )
         return dict(height=height, width=width, duration=duration, thumb=thumb, caption=caption)
 
     def _upload(self, files=None, meta=None):
@@ -292,7 +280,7 @@ class BaseDownloader(ABC):
 
             # Check the flag after the loop
             if not upload_successful:
-                raise ValueError("ERROR: For direct links, try again with `/direct`.")
+                raise FriendlyError(BotText.upload_failed)
 
         else:
             logging.error("Unknown upload format settings for %s", self._format)
@@ -307,7 +295,7 @@ class BaseDownloader(ABC):
 
         self._redis.add_cache(video_key, mapping)
         # change progress bar to done
-        self._bot_msg.edit_text("✅ Success")
+        self._bot_msg.edit_text(BotText.done)
         return success
 
     def _get_video_cache(self):

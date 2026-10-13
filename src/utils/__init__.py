@@ -17,16 +17,27 @@ from urllib.parse import quote_plus, urlparse
 import ffmpeg
 
 
-def sizeof_fmt(num: int, suffix="B"):
-    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+class FriendlyError(Exception):
+    """Error whose text is already written for the end user (in Russian) and is shown as is."""
+
+
+def sizeof_fmt(num: int, suffix="Б"):
+    for unit in ["", "К", "М", "Г", "Т", "П"]:
         if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
+            return "%.1f %s%s" % (num, unit, suffix)
         num /= 1024.0
-    return "%.1f%s%s" % (num, "Yi", suffix)
+    return "%.1f %s%s" % (num, "Э", suffix)
+
+
+def duration_fmt(seconds: int | float) -> str:
+    seconds = int(seconds or 0)
+    h, rest = divmod(seconds, 3600)
+    m, s = divmod(rest, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
 def timeof_fmt(seconds: int | float):
-    periods = [("d", 86400), ("h", 3600), ("m", 60), ("s", 1)]
+    periods = [("д ", 86400), ("ч ", 3600), ("мин ", 60), ("с", 1)]
     result = ""
     for period_name, period_seconds in periods:
         if seconds >= period_seconds:

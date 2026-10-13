@@ -1,3 +1,11 @@
+> **Fork of [tgbot-collection/ytdlbot](https://github.com/tgbot-collection/ytdlbot)** — private Russian-language edition.
+>
+> - Private mode: only `OWNER` + `AUTHORIZED_USER` can use any command or button; strangers get their Telegram ID on `/start`.
+> - Simple Russian UI: texts, progress bar, statuses, settings menu with checkmarks, friendly error messages, `/` command menu.
+> - VK / OK.ru: quality setting applies to all sites (1080/720/480p), `?list=` video links accepted, full titles in captions and file names.
+> - yt-dlp **nightly**, auto-updated daily inside the container.
+> - Single container: SQLite + in-memory cache instead of MySQL + Redis (`docker compose up -d --build`).
+
 # ytdlbot
 
 [![docker image](https://github.com/tgbot-collection/ytdlbot/actions/workflows/builder.yaml/badge.svg)](https://github.com/tgbot-collection/ytdlbot/actions/workflows/builder.yaml)

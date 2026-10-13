@@ -3,6 +3,7 @@
 
 # ytdlbot - direct.py
 
+import html
 import logging
 import os
 import re
@@ -58,7 +59,7 @@ class DirectDownload(BaseDownloader):
         # filename = self._get_aria2_name()
         self._process = None
         try:
-            self._bot_msg.edit_text("Aria2 download starting...")
+            self._bot_msg.edit_text("⬇️ Начинаю скачивание…")
             temp_dir = self._tempdir.name
             command = [
                 "aria2c",
@@ -123,12 +124,12 @@ class DirectDownload(BaseDownloader):
             return files
 
         except subprocess.TimeoutExpired:
-            error_msg = "Download timed out after 5 minutes."
+            error_msg = "Скачивание заняло больше 5 минут и было остановлено."
             logging.error(error_msg)
-            self._bot_msg.edit_text(f"Download failed!❌\n\n{error_msg}")
+            self._bot_msg.edit_text(f"😔 Не получилось скачать.\n\n{error_msg}")
             return []
         except Exception as e:
-            self._bot_msg.edit_text(f"Download failed!❌\n\n`{e}`")
+            self._bot_msg.edit_text(f"😔 Не получилось скачать.\n\n<code>{html.escape(str(e))}</code>")
             return []
         finally:
             if self._process:

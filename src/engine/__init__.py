@@ -39,17 +39,17 @@ def special_download_entrance(client: Any, bot_message: Any, url: str) -> Any:
     try:
         hostname = urlparse(url).hostname
         if not hostname:
-            raise ValueError(f"Could not parse a valid hostname from URL: {url}")
+            raise ValueError("Не удалось разобрать ссылку.")
     except (ValueError, TypeError) as e:
-        raise ValueError(f"Invalid URL format: {url}") from e
+        raise ValueError("Неправильная ссылка.") from e
 
     # Handle the special case for YouTube URLs first.
     if hostname.endswith("youtube.com") or hostname == "youtu.be":
-        raise ValueError("ERROR: For YouTube links, just send the link directly.")
+        raise ValueError("Ссылки на YouTube просто отправьте в чат, без команды.")
 
     # Iterate through the map to find a matching handler.
     for domain_suffix, handler_function in DOWNLOADER_MAP.items():
         if hostname.endswith(domain_suffix):
             return handler_function(client, bot_message, url)
 
-    raise ValueError(f"Invalid URL: No specific downloader found for {hostname}")
+    raise ValueError("Эта команда работает только для Instagram, Pixeldrain и KrakenFiles. Остальные ссылки просто отправьте в чат.")

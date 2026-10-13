@@ -3,6 +3,7 @@
 
 # ytdlbot - instagram.py
 
+import html
 import time
 import pathlib
 import re
@@ -46,7 +47,7 @@ class InstagramDownload(BaseDownloader):
         try:
             resp = requests.get(f"http://instagram:15000/?url={self._url}").json()
         except Exception as e:
-            self._bot_msg.edit_text(f"Download failed!❌\n\n`{e}`")
+            self._bot_msg.edit_text(f"😔 Не получилось скачать.\n\n<code>{html.escape(str(e))}</code>")
             pass
 
         code = self.extract_code()
@@ -128,7 +129,7 @@ class InstagramDownload(BaseDownloader):
                     counter += 1
 
                 except Exception as e:
-                    self._bot_msg.edit_text(f"Download failed!❌\n\n`{e}`")
+                    self._bot_msg.edit_text(f"😔 Не получилось скачать.\n\n<code>{html.escape(str(e))}</code>")
                     return []
 
         if "video" in found_media_types:

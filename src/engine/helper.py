@@ -88,7 +88,7 @@ def get_caption(url, video_path):
         url_for_cap = url
 
     cap = (
-        f"{file_name}\n\n{url_for_cap}\n\nInfo: {meta['width']}x{meta['height']} {file_size}\t" f"{meta['duration']}s\n"
+        f"🎬 {file_name}\n\n🔗 {url_for_cap}\n\n📐 {meta['width']}×{meta['height']}   📦 {file_size}   ⏱ {meta['duration']} с\n"
     )
     return cap
 

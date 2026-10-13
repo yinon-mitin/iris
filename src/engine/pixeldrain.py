@@ -5,6 +5,7 @@
 
 __author__ = "SanujaNS <sanujas@sanuja.biz>"
 
+import html
 import tempfile
 import pathlib
 import re
@@ -24,7 +25,7 @@ def pixeldrain_download(client, bot_message, url):
         if parsed.path.startswith('/file/'):
             return parsed.path.split('/')[-1]
 
-        raise ValueError("Invalid Pixeldrain URL format")
+        raise ValueError("Неправильная ссылка Pixeldrain.")
 
     def _get_download_url(file_id):
         return FILE_URL_FORMAT.format(file_id)
@@ -38,11 +39,11 @@ def pixeldrain_download(client, bot_message, url):
             ddl.start()
 
         except ValueError as e:
-            bot_message.edit_text(f"Download failed!❌\n\n`{e}`")
+            bot_message.edit_text(f"😔 Не получилось скачать.\n\n<code>{html.escape(str(e))}</code>")
         except Exception as e:
             bot_message.edit_text(
-                f"Download failed!❌\nAn error occurred: {str(e)}\n"
-                "Please check your URL and try again."
+                f"😔 Не получилось скачать.\n<code>{html.escape(str(e))}</code>\n"
+                "Проверьте ссылку и попробуйте ещё раз."
             )
 
     _download(url)

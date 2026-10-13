@@ -5,6 +5,7 @@
 
 __author__ = "SanujaNS <sanujas@sanuja.biz>"
 
+import html
 import requests
 from bs4 import BeautifulSoup
 from engine.direct import DirectDownload
@@ -22,18 +23,18 @@ def krakenfiles_download(client, bot_message, url: str):
             if post_url := soup.xpath('//form[@id="dl-form"]/@action'):
                 post_url = f"https://krakenfiles.com{post_url[0]}"
             else:
-                raise ValueError("ERROR: Unable to find post link.")
+                raise ValueError("Не удалось найти файл по этой ссылке.")
             if token := soup.xpath('//input[@id="dl-token"]/@value'):
                 data = {"token": token[0]}
             else:
-                raise ValueError("ERROR: Unable to find token for post.")
+                raise ValueError("Не удалось найти файл по этой ссылке.")
 
             return list(zip(post_url, data))
 
         except requests.RequestException as e:
-            raise ValueError(f"Failed to fetch page: {str(e)}")
+            raise ValueError(f"Не удалось открыть страницу: {str(e)}")
         except Exception as e:
-            raise ValueError(f"Failed to parse page: {str(e)}")
+            raise ValueError(f"Не удалось разобрать страницу: {str(e)}")
 
     def _get_download_url(form_data: list[tuple[str, str]]) -> str:
         for post_url, data in form_data:
@@ -46,28 +47,28 @@ def krakenfiles_download(client, bot_message, url: str):
                     return json_data["url"]
 
             except requests.RequestException as e:
-                bot_message.edit_text(f"Error during form submission: {str(e)}")
+                bot_message.edit_text(f"Ошибка: {html.escape(str(e))}")
             except ValueError as e:
-                bot_message.edit_text(f"Error parsing response: {str(e)}")
+                bot_message.edit_text(f"Ошибка: {html.escape(str(e))}")
 
-        raise ValueError("Could not obtain download URL")
+        raise ValueError("Не удалось получить ссылку на файл.")
 
     def _download(url: str):
         try:
-            bot_message.edit_text("Processing krakenfiles download link...")
+            bot_message.edit_text("⏳ Обрабатываю ссылку…")
             form_data = _extract_form_data(url)
             download_url = _get_download_url(form_data)
 
-            bot_message.edit_text("Starting download...")
+            bot_message.edit_text("⬇️ Начинаю скачивание…")
             downloader = DirectDownload(client, bot_message, download_url)
             downloader.start()
 
         except ValueError as e:
-            bot_message.edit_text(f"Download failed!❌\n{str(e)}")
+            bot_message.edit_text(f"😔 Не получилось скачать.\n<code>{html.escape(str(e))}</code>")
         except Exception as e:
             bot_message.edit_text(
-                f"Download failed!❌\nAn error occurred: {str(e)}\n"
-                "Please check your URL and try again."
+                f"😔 Не получилось скачать.\n<code>{html.escape(str(e))}</code>\n"
+                "Проверьте ссылку и попробуйте ещё раз."
             )
 
     _download(url)

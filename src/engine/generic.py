@@ -9,15 +9,15 @@ from pathlib import Path
 
 import yt_dlp
 
-from config import AUDIO_FORMAT
-from utils import is_youtube
+from config import AUDIO_FORMAT, BotText
+from utils import FriendlyError, is_youtube
 from database.model import get_format_settings, get_quality_settings
 from engine.base import BaseDownloader
 
 
 def match_filter(info_dict):
     if info_dict.get("is_live"):
-        raise NotImplementedError("Skipping live video")
+        raise FriendlyError(BotText.error_live)
     return None  # Allow download for non-live videos
 
 
@@ -92,7 +92,8 @@ class YoutubeDownload(BaseDownloader):
         return formats
 
     def _download(self, formats) -> list:
-        output = Path(self._tempdir.name, "%(title).70s.%(ext)s").as_posix()
+        # limit by bytes, not chars: Cyrillic titles are 2 bytes/char and file names max out at 255 bytes
+        output = Path(self._tempdir.name, "%(title).200B.%(ext)s").as_posix()
         ydl_opts = {
             "progress_hooks": [lambda d: self.download_hook(d)],
             "outtmpl": output,
@@ -133,7 +134,8 @@ class YoutubeDownload(BaseDownloader):
             ydl_opts["format"] = f
             logging.info("yt-dlp options: %s", ydl_opts)
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([self._url])
+                info = ydl.extract_info(self._url, download=True)
+                self._title = (info or {}).get("title") or getattr(self, "_title", None)
             files = list(Path(self._tempdir.name).glob("*"))
             break
 
