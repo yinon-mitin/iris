@@ -42,6 +42,7 @@ from database.model import (
     create_invite,
     credit_account,
     get_allowed_users,
+    get_bot_setting,
     get_format_settings,
     get_free_quota,
     get_paid_quota,
@@ -49,6 +50,7 @@ from database.model import (
     init_user,
     remove_allowed_user,
     reset_free,
+    set_bot_setting,
     set_user_settings,
     use_invite,
 )
@@ -115,7 +117,36 @@ def auth_gate(client: Client, message: types.Message):
             return  # let start_handler greet the new user
         text = BotText.invite_invalid if token.startswith("inv_") else BotText.private
         message.reply_text(text.format(uid), quote=True)
+        notify_access_request(client, message.from_user)
     message.stop_propagation()
+
+
+# uid -> time of the last request sent to the owner, so repeated /start doesn't spam
+last_requests: dict[int, float] = {}
+REQUEST_COOLDOWN = 3600
+
+
+def notifications_enabled() -> bool:
+    return get_bot_setting("notify_requests", "on") == "on"
+
+
+def notify_access_request(client: Client, user: types.User):
+    if not notifications_enabled() or time.time() - last_requests.get(user.id, 0) < REQUEST_COOLDOWN:
+        return
+    last_requests[user.id] = time.time()
+    markup = types.InlineKeyboardMarkup(
+        [
+            [
+                types.InlineKeyboardButton(BotText.access_allow, callback_data=f"allow-{user.id}"),
+                types.InlineKeyboardButton(BotText.access_deny, callback_data=f"deny-{user.id}"),
+            ]
+        ]
+    )
+    for owner in OWNER:
+        try:
+            client.send_message(owner, BotText.access_request.format(who=user_label(user)), reply_markup=markup)
+        except Exception as e:
+            logging.warning("Can't send access request to %s: %s", owner, e)
 
 
 @app.on_callback_query(group=-1)
@@ -264,6 +295,56 @@ def users_handler(client: Client, message: types.Message):
     if not env_users and not db_users:
         lines.append(BotText.users_empty)
     message.reply_text("\n".join(lines), quote=True)
+
+
+@app.on_callback_query(filters.regex(r"^(allow|deny)-\d+$") & filters.user(OWNER))
+def access_request_callback(client: Client, callback_query: types.CallbackQuery):
+    action, uid = callback_query.data.split("-")
+    uid = int(uid)
+    try:
+        user = client.get_users(uid)
+        who = user_label(user)
+    except Exception:
+        user, who = None, f"<code>{uid}</code>"
+
+    if action == "deny":
+        last_requests.pop(uid, None)
+        callback_query.message.edit_text(BotText.access_denied.format(who=who))
+        return
+    if uid in ALLOWED_IDS:
+        callback_query.answer(BotText.access_already)
+        callback_query.message.edit_text(BotText.access_allowed.format(who=who))
+        return
+    grant_access(uid, short_name(user) if user else None, callback_query.from_user.id)
+    logging.info("User %s allowed by %s from access request", uid, callback_query.from_user.id)
+    callback_query.message.edit_text(BotText.access_allowed.format(who=who))
+    try:
+        client.send_message(uid, BotText.adduser_notice)
+    except Exception as e:
+        logging.warning("Can't notify %s about access: %s", uid, e)
+
+
+def notify_view() -> tuple[str, types.InlineKeyboardMarkup]:
+    on = notifications_enabled()
+    text = BotText.notify_state.format(state=BotText.notify_on if on else BotText.notify_off)
+    button = types.InlineKeyboardButton(
+        BotText.notify_turn_off if on else BotText.notify_turn_on, callback_data="notify-off" if on else "notify-on"
+    )
+    return text, types.InlineKeyboardMarkup([[button]])
+
+
+@app.on_message(filters.command(["notify"]) & filters.user(OWNER))
+def notify_handler(client: Client, message: types.Message):
+    text, markup = notify_view()
+    message.reply_text(text, quote=True, reply_markup=markup)
+
+
+@app.on_callback_query(filters.regex(r"^notify-(on|off)$") & filters.user(OWNER))
+def notify_callback(client: Client, callback_query: types.CallbackQuery):
+    set_bot_setting("notify_requests", callback_query.data.split("-")[1])
+    callback_query.answer(BotText.setting_saved)
+    text, markup = notify_view()
+    callback_query.message.edit_text(text, reply_markup=markup)
 
 
 @app.on_message(filters.command(["buy"]))

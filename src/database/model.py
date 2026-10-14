@@ -100,6 +100,14 @@ class Invite(Base):
     used_by = Column(BigInteger)
 
 
+class BotSetting(Base):
+    # bot-wide switches the owner toggles from the bot, e.g. access request notifications
+    __tablename__ = "bot_settings"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(String(255))
+
+
 def create_session():
     engine = create_engine(
         os.getenv("DB_DSN"),
@@ -295,3 +303,18 @@ def use_invite(token: str, uid: int) -> int | None:
             return None
         invite.used_by = uid
         return invite.created_by
+
+
+def get_bot_setting(key: str, default: str | None = None) -> str | None:
+    with session_manager() as session:
+        setting = session.get(BotSetting, key)
+        return setting.value if setting else default
+
+
+def set_bot_setting(key: str, value: str):
+    with session_manager() as session:
+        setting = session.get(BotSetting, key)
+        if setting:
+            setting.value = value
+        else:
+            session.add(BotSetting(key=key, value=value))
