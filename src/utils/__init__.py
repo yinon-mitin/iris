@@ -5,6 +5,7 @@
 
 
 import logging
+import mimetypes
 import pathlib
 import re
 import shutil
@@ -15,6 +16,7 @@ from http.cookiejar import MozillaCookieJar
 from urllib.parse import quote_plus, urlparse
 
 import ffmpeg
+import filetype
 
 
 class FriendlyError(Exception):
@@ -58,6 +60,34 @@ def is_youtube(url: str) -> bool:
         return False
 
 
+def is_instagram(url: str) -> bool:
+    try:
+        host = (urlparse(url).hostname or "").lower()
+        return host == "instagram.com" or host.endswith(".instagram.com")
+    except Exception:
+        return False
+
+
+def guess_mime(path) -> str:
+    # by content first; fall back to the extension (filetype misses some mp4 brands)
+    return filetype.guess_mime(str(path)) or mimetypes.guess_type(str(path))[0] or ""
+
+
+def detect_format(files, current: str) -> str:
+    """Pick how to send the files by what they actually are, not by the video settings."""
+    if current == "document":
+        return current
+    mimes = [guess_mime(f) for f in files]
+    if all(m.startswith("image/") for m in mimes):
+        return "photo"
+    if all(m.startswith("audio/") for m in mimes):
+        return "audio"
+    if all(m.startswith(("video/", "audio/", "image/")) for m in mimes):
+        return current
+    # archives, PDFs, documents and anything else
+    return "document"
+
+
 def adjust_formats(formats):
     # high: best quality 1080P, 2K, 4K, 8K
     # medium: 720P
@@ -84,7 +114,8 @@ def clean_tempfile():
 
     for pattern in patterns:
         for item in temp_path.glob(pattern):
-            if time.time() - item.stat().st_ctime > 3600:
+            # older than any real download+upload, so a running job is never touched
+            if time.time() - item.stat().st_ctime > 3 * 3600:
                 shutil.rmtree(item, ignore_errors=True)
 
 

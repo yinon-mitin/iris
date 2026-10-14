@@ -55,7 +55,7 @@ from database.model import (
     use_invite,
 )
 from engine import direct_entrance, youtube_entrance, special_download_entrance
-from utils import FriendlyError, extract_url_and_name, is_youtube, sizeof_fmt, timeof_fmt
+from utils import FriendlyError, clean_tempfile, extract_url_and_name, is_youtube, sizeof_fmt, timeof_fmt
 
 logging.info("Authorized users are %s", AUTHORIZED_USER)
 logging.getLogger("apscheduler.executors.default").propagate = False
@@ -641,6 +641,7 @@ if __name__ == "__main__":
     botStartTime = time.time()
     scheduler = BackgroundScheduler()
     scheduler.add_job(reset_free, "cron", hour=0, minute=0)
+    scheduler.add_job(clean_tempfile, "interval", hours=1)
     scheduler.start()
     banner = f"""
 ▌ ▌         ▀▛▘     ▌       ▛▀▖              ▜            ▌

@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import tempfile
+import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -17,7 +18,7 @@ from typing import final
 
 import ffmpeg
 import filetype
-from pyrogram import enums, types
+from pyrogram import enums, errors, types
 
 from config import TG_NORMAL_MAX_SIZE, BotText, Types
 from database import Redis
@@ -30,7 +31,7 @@ from database.model import (
     use_quota,
 )
 from engine.helper import debounce, sizeof_fmt
-from utils import FriendlyError, duration_fmt
+from utils import FriendlyError, duration_fmt, guess_mime
 
 
 def generate_input_media(file_paths: list, cap: str) -> list:
@@ -61,6 +62,7 @@ class BaseDownloader(ABC):
             self._from_user = bot_msg.reply_to_message.from_user.id
         self._id = bot_msg.id
         self._tempdir = tempfile.TemporaryDirectory(prefix="ytdl-")
+        self._album_sent, self._album_first = 0, None
         self._bot_msg: Types.Message = bot_msg
         self._redis = Redis()
         self._quality = get_quality_settings(self._chat_id)
@@ -117,9 +119,18 @@ class BaseDownloader(ABC):
         text = self.__progress_text(BotText.uploading, total, current)
         self.edit_text(text)
 
-    @debounce(5)
+    @debounce(1.5)
     def edit_text(self, text: str):
-        self._bot_msg.edit_text(text, parse_mode=enums.ParseMode.HTML)
+        # progress is cosmetic: a Telegram error here must never break the download/upload itself
+        if time.time() < getattr(self, "_edit_paused_until", 0):
+            return
+        try:
+            self._bot_msg.edit_text(text, parse_mode=enums.ParseMode.HTML)
+        except errors.Flood as e:
+            logging.warning("Flood wait %ss on progress edit, pausing updates", e.value)
+            self._edit_paused_until = time.time() + e.value
+        except Exception as e:
+            logging.debug("Progress edit skipped: %s", e)
 
     @abstractmethod
     def _setup_formats(self) -> list | None:
@@ -144,8 +155,13 @@ class BaseDownloader(ABC):
         self._client.send_chat_action(chat_id, enums.ChatAction.UPLOAD_DOCUMENT)
         is_cache = kwargs.pop("cache", False)
         if len(files) > 1 and is_cache == False:
-            inputs = generate_input_media(files, caption)
-            return self._client.send_media_group(chat_id, inputs)[0]
+            # Telegram albums hold at most 10 items; on a retry skip the parts already sent
+            for i in range(self._album_sent, len(files), 10):
+                inputs = generate_input_media(files[i : i + 10], caption if i == 0 else None)
+                sent = self._client.send_media_group(chat_id, inputs)[0]
+                self._album_first = self._album_first or sent
+                self._album_sent = i + 10
+            return self._album_first
         else:
             file_arg_name = None
             if _type == "photo":
@@ -177,7 +193,7 @@ class BaseDownloader(ABC):
             return self._methods[_type](**send_args)
 
     def get_metadata(self):
-        video_path = list(Path(self._tempdir.name).glob("*"))[0]
+        video_path = sorted(Path(self._tempdir.name).glob("*"))[0]
         filename = Path(video_path).name
         width = height = duration = 0
         try:
@@ -200,14 +216,24 @@ class BaseDownloader(ABC):
             thumb = None
 
         title = getattr(self, "_title", None) or Path(video_path).stem
-        caption = BotText.caption.format(
-            title=html.escape(title), duration=duration_fmt(duration), width=width, height=height, url=html.escape(self._url)
-        )
+        mime = guess_mime(video_path)
+        if mime.startswith("image/"):
+            caption = BotText.caption_photo.format(title=html.escape(title), url=html.escape(self._url))
+        elif mime.startswith("audio/"):
+            caption = BotText.caption_audio.format(
+                title=html.escape(title), duration=duration_fmt(duration), url=html.escape(self._url)
+            )
+        elif mime.startswith("video/"):
+            caption = BotText.caption.format(
+                title=html.escape(title), duration=duration_fmt(duration), width=width, height=height, url=html.escape(self._url)
+            )
+        else:
+            caption = BotText.caption_file.format(title=html.escape(Path(video_path).name), url=html.escape(self._url))
         return dict(height=height, width=width, duration=duration, thumb=thumb, caption=caption)
 
     def _upload(self, files=None, meta=None):
         if files is None:
-            files = list(Path(self._tempdir.name).glob("*"))
+            files = sorted(Path(self._tempdir.name).glob("*"))
         if meta is None:
             meta = self.get_metadata()
 
@@ -293,10 +319,38 @@ class BaseDownloader(ABC):
             "meta": json.dumps({k: v for k, v in meta.items() if k != "thumb"}, ensure_ascii=False),
         }
 
-        self._redis.add_cache(video_key, mapping)
-        # change progress bar to done
-        self._bot_msg.edit_text(BotText.done)
+        # an album is several messages: caching only the first file_id would resend a single item
+        if len(files) == 1:
+            self._redis.add_cache(video_key, mapping)
+        # keep the chat clean: the file itself is the result, drop the progress message
+        try:
+            self._bot_msg.delete()
+        except Exception as e:
+            logging.warning("Can't delete progress message: %s", e)
         return success
+
+    def _upload_with_retry(self, files=None, meta=None, attempts=3):
+        # fix the list now: the first attempt leaves a generated thumbnail in the same directory
+        if files is None:
+            files = sorted(Path(self._tempdir.name).glob("*"))
+        for attempt in range(1, attempts + 1):
+            try:
+                return self._upload(files, meta)
+            except errors.Flood as e:
+                if attempt == attempts:
+                    raise
+                logging.warning("Flood wait %ss before upload retry for %s", e.value, self._url)
+                time.sleep(e.value)
+            except Exception as e:
+                # too large etc. won't get better on a retry
+                if attempt == attempts or (isinstance(e, FriendlyError) and str(e) != BotText.upload_failed):
+                    raise
+                logging.warning("Upload attempt %s/%s failed for %s: %s", attempt, attempts, self._url, e)
+                try:  # direct call: the debounced edit_text may swallow it right after a progress update
+                    self._bot_msg.edit_text(BotText.upload_retry.format(attempt + 1, attempts))
+                except Exception:
+                    pass
+                time.sleep(10 * attempt)
 
     def _get_video_cache(self):
         return self._redis.get_cache(self._calc_video_key())
@@ -310,13 +364,17 @@ class BaseDownloader(ABC):
     @final
     def start(self):
         check_quota(self._from_user)
-        if cache := self._get_video_cache():
-            logging.info("Cache hit for %s", self._url)
-            meta, file_id = json.loads(cache["meta"]), json.loads(cache["file_id"])
-            meta["cache"] = True
-            self._upload(file_id, meta)
-        else:
-            self._start()
+        try:
+            if cache := self._get_video_cache():
+                logging.info("Cache hit for %s", self._url)
+                meta, file_id = json.loads(cache["meta"]), json.loads(cache["file_id"])
+                meta["cache"] = True
+                self._upload_with_retry(file_id, meta)
+            else:
+                self._start()
+        finally:
+            # files are not kept on the server once the job is over, sent or not
+            self._tempdir.cleanup()
         self._record_usage()
 
     @abstractmethod

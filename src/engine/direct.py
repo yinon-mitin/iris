@@ -10,7 +10,9 @@ import re
 import pathlib
 import subprocess
 import tempfile
+from email.message import Message
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 import filetype
@@ -18,6 +20,18 @@ import requests
 
 from config import ENABLE_ARIA2, TMPFILE_PATH
 from engine.base import BaseDownloader
+from utils import detect_format
+
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+
+
+def response_filename(response) -> str | None:
+    msg = Message()
+    msg["content-disposition"] = response.headers.get("content-disposition", "")
+    name = msg.get_filename() or unquote(Path(urlparse(response.url).path).name)
+    name = name.replace("/", "_").strip(". ")
+    # file names max out at 255 bytes
+    return name.encode()[:200].decode(errors="ignore") or None
 
 
 class DirectDownload(BaseDownloader):
@@ -41,18 +55,16 @@ class DirectDownload(BaseDownloader):
 
     def _requests_download(self):
         logging.info("Requests download with url %s", self._url)
-        response = requests.get(self._url, stream=True)
+        response = requests.get(self._url, stream=True, headers={"User-Agent": UA}, timeout=60)
         response.raise_for_status()
-        file = Path(self._tempdir.name).joinpath(uuid4().hex)
+        file = Path(self._tempdir.name).joinpath(response_filename(response) or uuid4().hex)
         with open(file, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        ext = filetype.guess_extension(file)
-        if ext is not None:
-            new_name = file.with_suffix(f".{ext}")
-            file.rename(new_name)
-
-        return [file.as_posix()]
+        if not file.suffix and (ext := filetype.guess_extension(file)):
+            file = file.rename(file.with_suffix(f".{ext}"))
+        self._title = file.name
+        return [file]
 
     def _aria2_download(self):
         ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
@@ -182,4 +194,6 @@ class DirectDownload(BaseDownloader):
 
     def _start(self):
         downloaded_files = self._download()
-        self._upload(files=downloaded_files)
+        if downloaded_files:
+            self._format = detect_format(downloaded_files, self._format)
+        self._upload_with_retry(files=downloaded_files)

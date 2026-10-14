@@ -143,4 +143,4 @@ class InstagramDownload(BaseDownloader):
 
     def _start(self):
         downloaded_files = self._download()
-        self._upload(files=downloaded_files)
+        self._upload_with_retry(files=downloaded_files)
