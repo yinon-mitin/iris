@@ -3,6 +3,8 @@
 import logging
 import math
 import os
+import secrets
+import time
 from contextlib import contextmanager
 from typing import Literal
 
@@ -76,6 +78,26 @@ class Payment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     user = relationship("User", back_populates="payments")
+
+
+class AllowedUser(Base):
+    # users granted access from the bot itself (/adduser, /invite); env AUTHORIZED_USER still works too
+    __tablename__ = "allowed_users"
+
+    user_id = Column(BigInteger, primary_key=True, autoincrement=False)
+    name = Column(String(255))
+    added_by = Column(BigInteger)
+    added_at = Column(Integer)
+
+
+class Invite(Base):
+    # one-time invite links: t.me/<bot>?start=<token>
+    __tablename__ = "invites"
+
+    token = Column(String(64), primary_key=True)
+    created_by = Column(BigInteger)
+    created_at = Column(Integer)
+    used_by = Column(BigInteger)
 
 
 def create_session():
@@ -234,3 +256,42 @@ def credit_account(who, total_amount: int, quota: int, transaction, method="stri
             return user.free, user.paid
 
         return None, None
+
+
+def get_allowed_users() -> list[tuple[int, str]]:
+    with session_manager() as session:
+        return [(u.user_id, u.name) for u in session.query(AllowedUser).order_by(AllowedUser.added_at).all()]
+
+
+def add_allowed_user(uid: int, name: str | None, added_by: int):
+    with session_manager() as session:
+        user = session.get(AllowedUser, uid)
+        if user:
+            user.name = name or user.name
+        else:
+            session.add(AllowedUser(user_id=uid, name=name, added_by=added_by, added_at=int(time.time())))
+
+
+def remove_allowed_user(uid: int) -> bool:
+    with session_manager() as session:
+        user = session.get(AllowedUser, uid)
+        if user:
+            session.delete(user)
+        return user is not None
+
+
+def create_invite(created_by: int) -> str:
+    token = "inv_" + secrets.token_urlsafe(12)
+    with session_manager() as session:
+        session.add(Invite(token=token, created_by=created_by, created_at=int(time.time())))
+    return token
+
+
+def use_invite(token: str, uid: int) -> int | None:
+    # marks the invite as used, returns who created it; None if unknown or already used
+    with session_manager() as session:
+        invite = session.get(Invite, token)
+        if not invite or invite.used_by is not None:
+            return None
+        invite.used_by = uid
+        return invite.created_by

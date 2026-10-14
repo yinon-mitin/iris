@@ -38,14 +38,19 @@ from config import (
     BotText,
 )
 from database.model import (
+    add_allowed_user,
+    create_invite,
     credit_account,
+    get_allowed_users,
     get_format_settings,
     get_free_quota,
     get_paid_quota,
     get_quality_settings,
     init_user,
+    remove_allowed_user,
     reset_free,
     set_user_settings,
+    use_invite,
 )
 from engine import direct_entrance, youtube_entrance, special_download_entrance
 from utils import FriendlyError, extract_url_and_name, is_youtube, sizeof_fmt, timeof_fmt
@@ -69,8 +74,23 @@ def create_app(name: str, workers: int = 64) -> Client:
 
 app = create_app("main")
 
-# private mode: only OWNER and AUTHORIZED_USER can talk to the bot, for every handler
-ALLOWED_IDS = set(OWNER) | {int(i) for i in str(AUTHORIZED_USER or "").split(",") if i.strip()}
+# private mode: only OWNER, AUTHORIZED_USER and users added from the bot can talk to it, for every handler
+ENV_ALLOWED_IDS = set(OWNER) | {int(i) for i in str(AUTHORIZED_USER or "").split(",") if i.strip()}
+ALLOWED_IDS = ENV_ALLOWED_IDS | {uid for uid, _ in get_allowed_users()}
+
+
+def short_name(user: types.User) -> str:
+    name = " ".join(filter(None, [user.first_name, user.last_name])) or "Без имени"
+    return f"{name} (@{user.username})" if user.username else name
+
+
+def user_label(user: types.User) -> str:
+    return f"{html.escape(short_name(user))} <code>{user.id}</code>"
+
+
+def grant_access(uid: int, name: str | None, added_by: int):
+    add_allowed_user(uid, name, added_by)
+    ALLOWED_IDS.add(uid)
 
 
 @app.on_message(group=-1)
@@ -80,7 +100,21 @@ def auth_gate(client: Client, message: types.Message):
         return
     logging.warning("Rejected message from %s: %s", uid, getattr(message, "text", ""))
     if message.chat.type == enums.ChatType.PRIVATE and (message.text or "").startswith("/start"):
-        message.reply_text(BotText.private.format(uid), quote=True)
+        # invite link: t.me/<bot>?start=inv_xxx arrives as "/start inv_xxx"
+        parts = message.text.split(maxsplit=1)
+        token = parts[1].strip() if len(parts) > 1 else ""
+        inviter = use_invite(token, uid) if token.startswith("inv_") else None
+        if inviter is not None:
+            grant_access(uid, short_name(message.from_user), inviter)
+            logging.info("User %s joined via invite from %s", uid, inviter)
+            message.reply_text(BotText.invite_welcome, quote=True)
+            try:
+                client.send_message(inviter, BotText.invite_used_notice.format(who=user_label(message.from_user)))
+            except Exception as e:
+                logging.warning("Can't notify %s about used invite: %s", inviter, e)
+            return  # let start_handler greet the new user
+        text = BotText.invite_invalid if token.startswith("inv_") else BotText.private
+        message.reply_text(text.format(uid), quote=True)
     message.stop_propagation()
 
 
@@ -159,6 +193,77 @@ def ping_handler(client: Client, message: types.Message):
 
     thread = threading.Thread(target=send_message_and_measure_ping)
     thread.start()
+
+
+@app.on_message(filters.command(["invite"]) & filters.user(OWNER))
+def invite_handler(client: Client, message: types.Message):
+    token = create_invite(message.from_user.id)
+    link = f"https://t.me/{client.me.username}?start={token}"
+    message.reply_text(BotText.invite_created.format(link=link), quote=True, disable_web_page_preview=True)
+
+
+@app.on_message(filters.command(["adduser"]) & filters.user(OWNER))
+def adduser_handler(client: Client, message: types.Message):
+    user, uid = None, None
+    reply = message.reply_to_message
+    origin = getattr(reply, "forward_origin", None) if reply else None
+    if len(message.command) > 1 and message.command[1].isdigit():
+        uid = int(message.command[1])
+        try:
+            user = client.get_users(uid)
+        except Exception:
+            pass  # the bot may not know this user yet, the id is enough
+    elif getattr(origin, "sender_user", None):
+        user = origin.sender_user
+        uid = user.id
+    elif origin is not None:
+        message.reply_text(BotText.adduser_hidden, quote=True)
+        return
+    else:
+        message.reply_text(BotText.adduser_usage, quote=True)
+        return
+
+    grant_access(uid, short_name(user) if user else None, message.from_user.id)
+    logging.info("User %s added by %s", uid, message.from_user.id)
+    message.reply_text(BotText.adduser_done.format(who=user_label(user) if user else f"<code>{uid}</code>"), quote=True)
+    try:
+        client.send_message(uid, BotText.adduser_notice)
+    except Exception:
+        pass  # the user hasn't started the bot yet, they'll get access when they do
+
+
+@app.on_message(filters.command(["deluser"]) & filters.user(OWNER))
+def deluser_handler(client: Client, message: types.Message):
+    if len(message.command) < 2 or not message.command[1].isdigit():
+        message.reply_text(BotText.deluser_usage, quote=True)
+        return
+    uid = int(message.command[1])
+    if uid in ENV_ALLOWED_IDS:
+        message.reply_text(BotText.deluser_env.format(uid), quote=True)
+        return
+    if remove_allowed_user(uid):
+        ALLOWED_IDS.discard(uid)
+        logging.info("User %s removed by %s", uid, message.from_user.id)
+        message.reply_text(BotText.deluser_done.format(uid), quote=True)
+    else:
+        message.reply_text(BotText.deluser_missing.format(uid), quote=True)
+
+
+@app.on_message(filters.command(["users"]) & filters.user(OWNER))
+def users_handler(client: Client, message: types.Message):
+    lines = [BotText.users_header]
+    env_users = sorted(ENV_ALLOWED_IDS - set(OWNER))
+    if env_users:
+        lines.append("<b>Из .env:</b>")
+        lines += [f"• <code>{uid}</code>" for uid in env_users]
+    db_users = get_allowed_users()
+    if db_users:
+        lines.append("<b>Добавлены через бота:</b>")
+        lines += [f"• {html.escape(name or '—')} <code>{uid}</code>" for uid, name in db_users]
+        lines.append("\nУбрать доступ: <code>/deluser номер</code>")
+    if not env_users and not db_users:
+        lines.append(BotText.users_empty)
+    message.reply_text("\n".join(lines), quote=True)
 
 
 @app.on_message(filters.command(["buy"]))
