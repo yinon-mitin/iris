@@ -43,6 +43,17 @@ sequenceDiagram
     J->>J: delete temporary directory
 ```
 
+## Which format is downloaded
+
+Telegram plays H.264 smoothly and shows a preview frame; VP9 and AV1 often stutter or show no preview. Files are never re-encoded: at most a separate video and audio track are remuxed into one mp4, which takes seconds. The selector in `src/engine/generic.py` tries, in order:
+
+1. The best **H.264 whose reported size fits under 2 GB**, with AAC audio. A long film therefore drops to the next resolution instead of failing.
+2. The best H.264 of unknown size.
+3. A ready-made mp4 whose codec the site does not report. Instagram and VK serve their H.264 files this way.
+4. Only if the site has no H.264 at all: the best video in any codec.
+
+The quality setting (`/settings`) caps the resolution at 1080p, 720p or 480p, measured on the **short side**: a 720×1280 portrait clip counts as 720p. The cap is a preference, not a filter: if nothing is at or below it, the smallest version above it is used. The audio-only mode downloads the best `AUDIO_FORMAT` track as before.
+
 ## How files are sent
 
 The user's settings choose the quality and whether to prefer documents. The bot then sends what the file actually is, detected from its content (with the extension as a fallback):

@@ -30,75 +30,48 @@ def instagram_match_filter(info_dict):
     return match_filter(info_dict)
 
 
-class YoutubeDownload(BaseDownloader):
-    @staticmethod
-    def get_format(m):
-        return [
-            f"bestvideo[ext=mp4][height={m}]+bestaudio[ext=m4a]",
-            f"bestvideo[vcodec^=avc][height={m}]+bestaudio[acodec^=mp4a]/best[vcodec^=avc]/best",
-        ]
+# Telegram streams H.264 with a smooth preview; VP9/AV1 often lag or show no preview at all.
+# Files are never re-encoded: at most a separate video and audio track are remuxed into one mp4.
+# sites name the same codecs differently: YouTube/Instagram "avc1"/"mp4a", TikTok "h264"/"aac"
+H264 = "[vcodec~='^(avc|h264)']"
+AAC = "[acodec~='^(mp4a|aac)']"
+# headroom under Telegram's 2 GB for the audio track and the container
+LIMIT = "1900M"
 
+
+def _video_format(limit: str = LIMIT) -> str:
+    known = (f"[filesize<{limit}]", f"[filesize_approx<{limit}]")  # size reported and it fits
+    fits = f"[filesize<?{limit}][filesize_approx<?{limit}]"  # fits, or size not reported
+    return "/".join([
+        # 1. H.264 whose size is known to fit: a long film drops to a lower resolution instead of failing
+        *(f"bv*{H264}{k}+ba{AAC}" for k in known),
+        # 2. H.264 of unknown size
+        f"bv*{H264}{fits}+ba{AAC}",
+        f"bv*{H264}{fits}+ba",
+        # 3. progressive mp4 whose codec the site does not report (Instagram, VK): in practice H.264 with audio
+        f"b[vcodec~=?'^(avc|h264)'][ext=mp4]{fits}",
+        # 4. the site has no H.264 at all: best of whatever it has
+        f"bv*{fits}+ba",
+        f"b{fits}",
+        # 5. nothing fits into 2 GB: the size check in download_hook stops it with a clear message
+        "bv*+ba/b",
+    ])
+
+
+VIDEO_FORMAT = _video_format()
+QUALITY_CAP = {"high": 1080, "medium": 720, "low": 480}
+
+
+class YoutubeDownload(BaseDownloader):
     def _setup_formats(self) -> list | None:
         quality, format_ = get_quality_settings(self._chat_id), get_format_settings(self._chat_id)
-        if not is_youtube(self._url):
-            # VK, OK.ru and other sites: respect quality setting so long videos fit into Telegram's 2GB
-            if format_ == "audio" or quality == "audio":
-                return ["bestaudio/best"]
-            height = {"medium": 720, "low": 480}.get(quality, 1080)
-            return [f"bestvideo*[height<={height}]+bestaudio/best[height<={height}]/best"]
-
-        # quality: high, medium, low, custom
-        # format: audio, video, document
-        formats = []
-        defaults = [
-            # webm , vp9 and av01 are not streamable on telegram, so we'll extract only mp4
-            "bestvideo[ext=mp4][vcodec!*=av01][vcodec!*=vp09]+bestaudio[ext=m4a]/bestvideo+bestaudio",
-            "bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[vcodec^=avc]/best",
-            None,
-        ]
-        audio = AUDIO_FORMAT or "m4a"
-        maps = {
-            "high-audio": [f"bestaudio[ext={audio}]"],
-            "high-video": defaults,
-            "high-document": defaults,
-            "medium-audio": [f"bestaudio[ext={audio}]"],  # no mediumaudio :-(
-            "medium-video": self.get_format(720),
-            "medium-document": self.get_format(720),
-            "low-audio": [f"bestaudio[ext={audio}]"],
-            "low-video": self.get_format(480),
-            "low-document": self.get_format(480),
-            "custom-audio": "",
-            "custom-video": "",
-            "custom-document": "",
-        }
-
-        if quality == "custom":
-            pass
-            # TODO not supported yet
-            # get format from ytdlp, send inlinekeyboard button to user so they can choose
-            # another callback will be triggered to download the video
-            # available_options = {
-            #     "480P": "best[height<=480]",
-            #     "720P": "best[height<=720]",
-            #     "1080P": "best[height<=1080]",
-            # }
-            # markup, temp_row = [], []
-            # for quality, data in available_options.items():
-            #     temp_row.append(types.InlineKeyboardButton(quality, callback_data=data))
-            #     if len(temp_row) == 3:  # Add a row every 3 buttons
-            #         markup.append(temp_row)
-            #         temp_row = []
-            # # Add any remaining buttons as the last row
-            # if temp_row:
-            #     markup.append(temp_row)
-            # self._bot_msg.edit_text("Choose the format", reply_markup=types.InlineKeyboardMarkup(markup))
-            # return None
-
-        formats.extend(maps[f"{quality}-{format_}"])
-        # extend default formats if not high*
-        if quality != "high":
-            formats.extend(defaults)
-        return formats
+        if format_ == "audio" or quality == "audio":
+            self._format_sort = None
+            return [f"bestaudio[ext={AUDIO_FORMAT or 'm4a'}]/bestaudio/best"]
+        # "res" is the short side, so a 720x1280 portrait clip counts as 720p, not 1280p.
+        # It is a preference, not a filter: within the cap the largest wins; above it, the smallest.
+        self._format_sort = [f"res:{QUALITY_CAP.get(quality, 1080)}", "ext:mp4:m4a"]
+        return [VIDEO_FORMAT]
 
     def _download(self, formats) -> list:
         # limit by bytes, not chars: Cyrillic titles are 2 bytes/char and file names max out at 255 bytes
@@ -119,6 +92,9 @@ class YoutubeDownload(BaseDownloader):
             "embed_thumbnail": True,
             "writethumbnail": False,
         }
+        if format_sort := getattr(self, "_format_sort", None):
+            ydl_opts["format_sort"] = format_sort
+            ydl_opts["merge_output_format"] = "mp4"
         instagram = is_instagram(self._url)
         if instagram:
             # carousel items share one title: name files by position so they don't overwrite each other
@@ -142,8 +118,8 @@ class YoutubeDownload(BaseDownloader):
                 # }
 
         if self._url.startswith("https://drive.google.com"):
-            # Always use the `source` format for Google Drive URLs.
-            formats = ["source"] + formats
+            # Always use the `source` format for Google Drive URLs (only the first format string is used).
+            formats = [f"source/{formats[0]}"]
 
         files = None
         for f in formats:
