@@ -6,6 +6,9 @@ services:
       - .env
     # tini as PID 1: forwards the restart signal from docker-entrypoint.sh to the bot
     init: true
+    # only for the entrypoint firewall (blocks the home network); the bot itself runs without it
+    cap_add:
+      - NET_ADMIN
     restart: unless-stopped
     volumes:
       - ./data:/data

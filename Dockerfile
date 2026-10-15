@@ -8,7 +8,7 @@ RUN pdm install
 FROM python:3.12-alpine AS runner
 WORKDIR /app
 
-RUN apk update && apk add --no-cache ffmpeg aria2 deno
+RUN apk update && apk add --no-cache ffmpeg aria2 deno iptables setpriv
 COPY --from=pybuilder /build/.venv/lib/ /usr/local/lib/
 RUN pip install --root-user-action=ignore -U --pre "yt-dlp[default]"
 COPY src /app

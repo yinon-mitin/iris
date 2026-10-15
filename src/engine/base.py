@@ -31,7 +31,7 @@ from database.model import (
     use_quota,
 )
 from engine.helper import debounce, sizeof_fmt
-from utils import FriendlyError, duration_fmt, guess_mime
+from utils import FriendlyError, duration_fmt, guess_mime, is_internal_url
 
 
 def generate_input_media(file_paths: list, cap: str) -> list:
@@ -365,6 +365,8 @@ class BaseDownloader(ABC):
     def start(self):
         check_quota(self._from_user)
         try:
+            if is_internal_url(self._url):
+                raise FriendlyError(BotText.error_internal)
             if cache := self._get_video_cache():
                 logging.info("Cache hit for %s", self._url)
                 meta, file_id = json.loads(cache["meta"]), json.loads(cache["file_id"])

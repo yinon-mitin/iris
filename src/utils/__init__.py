@@ -4,11 +4,13 @@
 # ytdlbot - __init__.py.py
 
 
+import ipaddress
 import logging
 import mimetypes
 import pathlib
 import re
 import shutil
+import socket
 import tempfile
 import time
 import uuid
@@ -66,6 +68,19 @@ def is_instagram(url: str) -> bool:
         return host == "instagram.com" or host.endswith(".instagram.com")
     except Exception:
         return False
+
+
+def is_internal_url(url: str) -> bool:
+    """True if the link points to a private/local address (home network, tailnet, Docker host).
+    The container firewall blocks these anyway (also via redirects); this gives a clear answer."""
+    try:
+        host = urlparse(url).hostname
+        if not host:
+            return False
+        addrs = {info[4][0] for info in socket.getaddrinfo(host, None)}
+    except (ValueError, OSError):
+        return False  # unresolvable: let the download fail with its own error
+    return any(not ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs)
 
 
 def guess_mime(path) -> str:
