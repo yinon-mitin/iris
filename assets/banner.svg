@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Iris — private Telegram downloader</title>
+  <desc id="desc">Iris is a self-hosted, private-by-default Telegram bot that turns a link into a video, photos, music or a file in the chat.</desc>
+  <defs>
+    <linearGradient id="accent" x1="80" y1="55" x2="1060" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#54D6C5"/>
+      <stop offset=".5" stop-color="#4F9BFF"/>
+      <stop offset="1" stop-color="#7C5CFC"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101A2C"/>
+      <stop offset="1" stop-color="#090E1A"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="236" y1="286" x2="272" y2="328" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F9BFF"/>
+      <stop offset="1" stop-color="#7C5CFC"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#02040A" flood-opacity=".5"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="360" rx="32" fill="url(#panel)"/>
+  <path d="M0 298C234 250 365 337 585 300c246-42 375-157 615-104v164H0Z" fill="#121F35"/>
+  <path d="M0 315c229-41 374 26 587-8 251-40 382-139 613-93" fill="none" stroke="url(#accent)" stroke-opacity=".26" stroke-width="2"/>
+  <g transform="translate(74 58) scale(.48)" filter="url(#shadow)">
+    <circle cx="256" cy="256" r="188" fill="#0B1220" stroke="#263A59" stroke-width="3"/>
+    <g fill="none" stroke-linecap="round" stroke-width="20">
+      <path d="M100 318a156 156 0 0 1 312 0" stroke="#54D6C5"/>
+      <path d="M136 318a120 120 0 0 1 240 0" stroke="#4F9BFF"/>
+      <path d="M172 318a84 84 0 0 1 168 0" stroke="#7C5CFC"/>
+    </g>
+    <path d="M232 274h48c15 0 28 13 28 28v22c0 15-13 28-28 28h-32l-26 21v-21c-14 0-22-12-22-26v-24c0-15 13-28 32-28Z" fill="#F4F8FF"/>
+    <path d="M254 289v36m-16-16 16 16 16-16" fill="none" stroke="url(#arrow)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g fill="#F5F8FF" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <text x="375" y="128" font-size="76" font-weight="760" letter-spacing="-2">Iris</text>
+    <text x="378" y="176" fill="#D6DFEC" font-size="25" font-weight="600">Private Telegram downloader</text>
+    <text x="378" y="220" fill="#8FA3BD" font-size="20" font-weight="450">Send a link, get the video, photos, music or file right in the chat.</text>
+  </g>
+  <g font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#C9D6EA">
+    <rect x="378" y="246" width="128" height="32" rx="16" fill="#142239" stroke="#54D6C5" stroke-opacity=".55"/>
+    <text x="442" y="267" text-anchor="middle">yt-dlp nightly</text>
+    <rect x="516" y="246" width="112" height="32" rx="16" fill="#142239" stroke="#4F9BFF" stroke-opacity=".55"/>
+    <text x="572" y="267" text-anchor="middle">up to 2 GB</text>
+    <rect x="638" y="246" width="158" height="32" rx="16" fill="#142239" stroke="#7C5CFC" stroke-opacity=".55"/>
+    <text x="717" y="267" text-anchor="middle">private by default</text>
+  </g>
+</svg>

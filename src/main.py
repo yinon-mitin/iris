@@ -644,12 +644,9 @@ if __name__ == "__main__":
     scheduler.add_job(clean_tempfile, "interval", hours=1)
     scheduler.start()
     banner = f"""
-▌ ▌         ▀▛▘     ▌       ▛▀▖              ▜            ▌
-▝▞  ▞▀▖ ▌ ▌  ▌  ▌ ▌ ▛▀▖ ▞▀▖ ▌ ▌ ▞▀▖ ▌  ▌ ▛▀▖ ▐  ▞▀▖ ▝▀▖ ▞▀▌
- ▌  ▌ ▌ ▌ ▌  ▌  ▌ ▌ ▌ ▌ ▛▀  ▌ ▌ ▌ ▌ ▐▐▐  ▌ ▌ ▐  ▌ ▌ ▞▀▌ ▌ ▌
- ▘  ▝▀  ▝▀▘  ▘  ▝▀▘ ▀▀  ▝▀▘ ▀▀  ▝▀   ▘▘  ▘ ▘  ▘ ▝▀  ▝▀▘ ▝▀▘
-
-By @BennyThink, VIP Mode: {ENABLE_VIP} 
+  Iris · private Telegram downloader
+  https://github.com/yinon-mitin/iris · based on ytdlbot by @BennyThink
+  VIP mode: {ENABLE_VIP}
     """
     print(banner)
     app.start()

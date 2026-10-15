@@ -1,7 +1,9 @@
+name: iris
+
 services:
-  ytdl:
+  bot:
     build: .
-    image: ytdlbot:private
+    image: iris:local
     env_file:
       - .env
     # tini as PID 1: forwards the restart signal from docker-entrypoint.sh to the bot

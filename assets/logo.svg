@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Iris logo</title>
+  <desc id="desc">A three-band rainbow arching over a chat bubble with a download arrow: anything on the web, delivered into the chat.</desc>
+  <defs>
+    <linearGradient id="arrow" x1="236" y1="286" x2="272" y2="328" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F9BFF"/>
+      <stop offset="1" stop-color="#7C5CFC"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#050812" flood-opacity=".42"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#090E1A"/>
+  <circle cx="256" cy="256" r="188" fill="#101A2C" stroke="#233552" stroke-width="2"/>
+  <g fill="none" stroke-linecap="round" stroke-width="20" filter="url(#shadow)">
+    <path d="M100 318a156 156 0 0 1 312 0" stroke="#54D6C5"/>
+    <path d="M136 318a120 120 0 0 1 240 0" stroke="#4F9BFF"/>
+    <path d="M172 318a84 84 0 0 1 168 0" stroke="#7C5CFC"/>
+  </g>
+  <g filter="url(#shadow)">
+    <path d="M232 274h48c15 0 28 13 28 28v22c0 15-13 28-28 28h-32l-26 21v-21c-14 0-22-12-22-26v-24c0-15 13-28 32-28Z" fill="#F4F8FF"/>
+  </g>
+  <path d="M254 289v36m-16-16 16 16 16-16" fill="none" stroke="url(#arrow)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="100" cy="350" r="7" fill="#54D6C5"/>
+  <circle cx="412" cy="350" r="7" fill="#7C5CFC"/>
+</svg>

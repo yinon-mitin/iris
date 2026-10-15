@@ -1,52 +1,54 @@
-# Установка и настройка
+# Installation and settings
 
-Инструкция для запуска бота на своём компьютере (macOS, Linux) или VPS.
-Время установки — около 15 минут.
+[English](INSTALL.md) · [Русский](ru/INSTALL.md)
 
-- [1. Что понадобится](#1-что-понадобится)
-- [2. Ключи Telegram](#2-ключи-telegram)
-- [3. Установка](#3-установка)
-- [4. Доступ для друзей и родных](#4-доступ-для-друзей-и-родных)
-- [5. Оформление бота](#5-оформление-бота)
-- [6. Обновление](#6-обновление)
-- [7. Все настройки `.env`](#7-все-настройки-env)
-- [8. Где запускать: дом или VPS](#8-где-запускать-дом-или-vps)
-- [9. Если что-то не работает](#9-если-что-то-не-работает)
+How to run Iris on your own computer (macOS, Linux) or a VPS. Setup takes about 15 minutes.
 
-## 1. Что понадобится
+- [1. Requirements](#1-requirements)
+- [2. Telegram keys](#2-telegram-keys)
+- [3. Install](#3-install)
+- [4. Access for family and friends](#4-access-for-family-and-friends)
+- [5. Bot branding](#5-bot-branding)
+- [6. Every `.env` setting](#6-every-env-setting)
+- [7. Where to run: home or VPS](#7-where-to-run-home-or-vps)
 
-| Что | Зачем |
-|-----|-------|
-| Компьютер или VPS, включённый 24/7 | На нём работает бот |
-| [Docker](https://docs.docker.com/engine/install/) с Compose. На macOS — [OrbStack](https://orbstack.dev) или Docker Desktop | Запуск бота в контейнере |
-| Git | Скачать проект |
-| 5+ ГБ свободного места | Временные файлы видео, до 2 ГБ на каждое |
-| Аккаунт Telegram | Создать бота и получить ключи |
+Updates, backups and troubleshooting are covered in [Operations](OPERATIONS.md).
 
-Подойдёт любая архитектура: x86_64 или ARM, в том числе Apple Silicon (Mac mini M1–M4).
+## 1. Requirements
 
-## 2. Ключи Telegram
+| What | Why |
+| --- | --- |
+| A computer or VPS that stays on 24/7 | Runs the bot |
+| [Docker](https://docs.docker.com/engine/install/) with Compose v2. On macOS, [OrbStack](https://orbstack.dev) or Docker Desktop | Runs the bot container |
+| Git and Make | Fetch and manage the project |
+| 5+ GB of free disk space | Temporary files, up to 2 GB per download; removed right after upload |
+| A Telegram account | Create the bot and get the keys |
 
-Нужно получить четыре значения:
+Any architecture works: x86_64 or ARM, including Apple Silicon (Mac mini M1–M4).
 
-1. **`BOT_TOKEN`** — токен бота.
-   Напишите [@BotFather](https://t.me/BotFather) → `/newbot` → придумайте имя и username. BotFather пришлёт токен вида `123456789:AA...`.
-2. **`APP_ID`** и **`APP_HASH`** — ключи Telegram API. Через них бот отправляет файлы до 2 ГБ, а не до 50 МБ.
-   Войдите на [my.telegram.org](https://my.telegram.org) → **API development tools** → создайте приложение (название любое).
-3. **`OWNER`** — ваш Telegram ID, число.
-   Его можно узнать у [@userinfobot](https://t.me/userinfobot).
+## 2. Telegram keys
 
-> ⚠️ Никому не показывайте `BOT_TOKEN` и `APP_HASH` и не публикуйте файл `.env`: он уже добавлен в `.gitignore`.
+You need four values:
 
-## 3. Установка
+1. **`BOT_TOKEN`**, the bot token.
+   Message [@BotFather](https://t.me/BotFather) → `/newbot` → choose a name and username. BotFather replies with a token like `123456789:AA...`.
+2. **`APP_ID`** and **`APP_HASH`**, the Telegram API keys. They let the bot upload files up to 2 GB instead of 50 MB.
+   Sign in at [my.telegram.org](https://my.telegram.org) → **API development tools** → create an application (any name).
+3. **`OWNER`**, your numeric Telegram ID.
+   [@userinfobot](https://t.me/userinfobot) will tell you.
 
-```bash
-git clone https://github.com/yinon-mitin/ytdlbot.git
-cd ytdlbot
-cp .env.example .env
+> [!WARNING]
+> Never share `BOT_TOKEN` or `APP_HASH`, and never publish `.env`. It is already in `.gitignore`.
+
+## 3. Install
+
+```sh
+git clone https://github.com/yinon-mitin/iris.git
+cd iris
+make init
 ```
 
-Откройте `.env` в любом редакторе и заполните первый блок:
+`make init` creates `.env` from the template, a `data/` directory for the database and an empty `youtube-cookies.txt`. Open `.env` in any editor and fill in the first block:
 
 ```ini
 APP_ID=12345678
@@ -56,132 +58,83 @@ OWNER=111111111
 AUTHORIZED_USER=
 ```
 
-Запустите:
+Check and start:
 
-```bash
-docker compose up -d --build
+```sh
+make test
+make up
+make logs
 ```
 
-Первая сборка займёт несколько минут. Проверьте журнал:
+The first build takes a few minutes. The log should show `Firewall: home network and private addresses blocked`, `yt-dlp version: …` and `Session started`. Open your bot in Telegram, press **Start** and send a link.
 
-```bash
-docker compose logs -f
-```
+> [!NOTE]
+> The container needs `NET_ADMIN` so its entrypoint can close off your home network at startup. It is already set in `docker-compose.yml`; the bot process itself runs without it. See [Architecture](ARCHITECTURE.md#egress-firewall).
 
-Если всё в порядке, вы увидите строки `yt-dlp version: …` и `Session started`.
-Откройте своего бота в Telegram, нажмите **Start** и отправьте ссылку на видео.
+## 4. Access for family and friends
 
-## 4. Доступ для друзей и родных
+The bot is private: by default only the owner (`OWNER`) can use it. People are added from the bot itself, no restart needed. Only the owner sees and can run these commands:
 
-Бот приватный: по умолчанию им может пользоваться только владелец (`OWNER`).
-Пользователей можно добавлять прямо из бота, перезапуск не нужен. Эти команды видит и может выполнять только владелец:
+| Command | What it does |
+| --- | --- |
+| `/invite` | A one-time invite link. Send it to someone: they press **Start**, get access immediately, and you get a notification |
+| `/adduser 222222222` | Grant access by Telegram ID. The bot shows a stranger their ID when they press **Start**. You can also reply `/adduser` to a message forwarded from that person |
+| `/deluser 222222222` | Revoke access |
+| `/users` | Everyone who has access |
+| `/notify` | Turn notifications about new people on or off |
 
-| Команда | Что делает |
-|---------|-----------|
-| `/invite` | Одноразовая ссылка-приглашение. Отправьте её человеку: он нажмёт **Start** и сразу получит доступ, а вам придёт уведомление |
-| `/adduser 222222222` | Дать доступ по Telegram ID. Бот показывает ID незнакомцу, когда тот нажимает **Start**. Ещё можно ответить командой `/adduser` на пересланное от человека сообщение |
-| `/deluser 222222222` | Убрать доступ |
-| `/users` | Список всех, у кого есть доступ |
-| `/notify` | Включить или выключить уведомления о новых людях |
+When a stranger presses **Start**, the bot sends you a notification with **✅ Allow** and **🚫 Deny** buttons, at most once an hour per person.
 
-Когда незнакомый человек нажимает **Start**, бот присылает вам уведомление с кнопками «✅ Разрешить» и «🚫 Отклонить». Об одном и том же человеке бот пишет не чаще раза в час. Уведомления включены по умолчанию, выключить их можно командой `/notify`.
+People added through the bot are stored in the database (`data/`) and survive restarts. You can also list IDs in `.env` (comma-separated, no spaces) and run `make up`:
 
-Пользователи, добавленные через бота, хранятся в базе (`data/`) и сохраняются после перезапуска.
-
-Как раньше, можно вписать ID в `.env` (несколько номеров через запятую, без пробелов) и выполнить `docker compose up -d`:
 ```ini
 AUTHORIZED_USER=222222222,333333333
 ```
-Таких пользователей убрать командой `/deluser` нельзя, только через `.env`.
 
-## 5. Оформление бота
+Those users can only be removed by editing `.env`, not with `/deluser`.
 
-Всё делается через [@BotFather](https://t.me/BotFather):
+## 5. Bot branding
 
-| Команда | Что задать |
-|---------|-----------|
-| `/setuserpic` | Аватарку: можно взять [`assets/icon.png`](../assets/icon.png) |
-| `/setdescription` | Текст, который виден до нажатия Start. Например: «Пришлите ссылку на видео — я скачаю его и отправлю сюда.» |
-| `/setabouttext` | Короткое описание в профиле бота |
-| `/setjoingroups` → **Disable** | Запретить добавлять бота в группы |
+All through [@BotFather](https://t.me/BotFather):
 
-Меню команд («/») бот настраивает сам при запуске.
+| Command | What to set |
+| --- | --- |
+| `/setuserpic` | The avatar: [`assets/logo.png`](../assets/logo.png) |
+| `/setdescription` | Text shown before Start, e.g. «Пришлите ссылку — я скачаю видео, фото или файл и отправлю сюда.» |
+| `/setabouttext` | The short profile description |
+| `/setjoingroups` → **Disable** | Prevent adding the bot to groups |
 
-## 6. Обновление
+The bot sets up its own command menu («/») on start.
 
-**Обновлять yt-dlp не нужно.** Контейнер ставит свежую nightly-сборку при каждом запуске и раз в сутки проверяет обновления. Если вышла новая версия, бот сам перезапускается.
+## 6. Every `.env` setting
 
-**Обновление самого бота:**
+| Variable | Default | Description |
+| --- | --- | --- |
+| `APP_ID`, `APP_HASH` | — | Telegram API keys from my.telegram.org. **Required** |
+| `BOT_TOKEN` | — | Token from @BotFather. **Required** |
+| `OWNER` | — | Owner Telegram ID(s), comma-separated. **Required** |
+| `AUTHORIZED_USER` | empty | Allowed user IDs, comma-separated. The owner is always allowed |
+| `WORKERS` | `16` | How many messages the bot handles at once |
+| `DB_DSN` | `sqlite:////data/iris.db` | Users and settings database, kept in `./data` |
+| `REDIS_HOST` | empty | Empty means an in-memory cache; an external Redis also works |
+| `YTDLP_UPDATE_INTERVAL` | `86400` | How often to check for a new yt-dlp nightly, in seconds |
+| `ENABLE_ARIA2` | `False` | Use aria2 for the `/direct` command |
+| `M3U8_SUPPORT` | `False` | Allow direct `.m3u8` links |
+| `AUDIO_FORMAT` | empty (m4a) | Format for the audio-only mode, e.g. `mp3` |
+| `TMPFILE_PATH` | empty | Temporary directory inside the container |
+| `ENABLE_VIP`, `PROVIDER_TOKEN` | `False` | Paid mode from the original project; not needed for a private bot |
 
-```bash
-git pull
-docker compose up -d --build
-```
+**YouTube cookies.** If YouTube asks you to sign in (common on a VPS), export browser cookies in Netscape format to `youtube-cookies.txt` in the project root and run `make restart`. Use a separate account, not your main one: everything that account can see becomes downloadable by every bot user. The file is excluded from Git.
 
-**Для тех, кто ведёт свой форк** и хочет подтянуть изменения из оригинального проекта:
+## 7. Where to run: home or VPS
 
-```bash
-git remote add upstream https://github.com/tgbot-collection/ytdlbot.git   # один раз
-git fetch upstream
-git merge upstream/master
-docker compose up -d --build
-```
+| | Home computer (e.g. a Mac mini) | Data-center VPS |
+| --- | --- | --- |
+| Cost | Free | From ~$5/month |
+| Availability | While the computer is on and online | 24/7 |
+| Site blocking | Home IPs are blocked less often | YouTube often asks for cookies; VK may limit foreign IPs |
+| Upload speed | Depends on your home connection | Usually high |
 
-## 7. Все настройки `.env`
+VK Video and OK.ru may restrict access from outside Russia. If videos do not open from your server, use a proxy with a suitable IP.
 
-| Переменная | По умолчанию | Описание |
-|------------|--------------|----------|
-| `APP_ID`, `APP_HASH` | — | Ключи Telegram API с my.telegram.org. **Обязательно** |
-| `BOT_TOKEN` | — | Токен от @BotFather. **Обязательно** |
-| `OWNER` | — | Telegram ID владельца, можно несколько через запятую. **Обязательно** |
-| `AUTHORIZED_USER` | пусто | ID пользователей через запятую. Владелец имеет доступ всегда. Добавлять людей можно и из бота: `/invite`, `/adduser` |
-| `WORKERS` | `16` | Сколько сообщений бот обрабатывает одновременно |
-| `DB_DSN` | `sqlite:////data/ytdlbot.db` | База настроек пользователей. Хранится в папке `./data` |
-| `REDIS_HOST` | пусто | Пусто — кэш в памяти. Можно указать внешний Redis |
-| `YTDLP_UPDATE_INTERVAL` | `86400` | Как часто проверять обновления yt-dlp, в секундах |
-| `ENABLE_ARIA2` | `False` | Использовать aria2 для команды `/direct` |
-| `M3U8_SUPPORT` | `False` | Разрешить прямые ссылки на `.m3u8` |
-| `AUDIO_FORMAT` | пусто (m4a) | Формат для режима «Только звук», например `mp3` |
-| `TMPFILE_PATH` | пусто | Папка для временных файлов внутри контейнера |
-| `ENABLE_VIP`, `PROVIDER_TOKEN` | `False` | Платный режим из оригинального проекта. Для приватного бота не нужен |
-
-**Cookies для YouTube.** Если YouTube требует войти в аккаунт (часто бывает на VPS),
-экспортируйте cookies из браузера в формате Netscape в файл `youtube-cookies.txt` в корне
-проекта и перезапустите бот. Используйте отдельный аккаунт, а не основной.
-
-## 8. Где запускать: дом или VPS
-
-| | Домашний компьютер (например, Mac mini) | VPS в дата-центре |
-|---|---|---|
-| Цена | Бесплатно | От ~5 $/мес |
-| Доступность | Пока включён компьютер и есть интернет | 24/7 |
-| Блокировки сайтов | Домашний IP блокируют реже | YouTube часто просит cookies, VK может ограничивать зарубежные IP |
-| Скорость отправки | Зависит от домашнего интернета | Обычно высокая |
-
-VK Video и OK.ru могут ограничивать доступ для IP вне России. С израильского домашнего IP
-всё проверено и работает. Если на вашем сервере видео не открываются, используйте прокси
-с подходящим IP.
-
-На macOS отключите сон: **Системные настройки → Экономия энергии**. Ещё включите
-автозапуск OrbStack или Docker Desktop при входе в систему. Контейнер перезапускается сам
-(`restart: unless-stopped`).
-
-## 9. Если что-то не работает
-
-**Бот молчит.**
-Посмотрите `docker compose logs --tail 50`. Проверьте, что ваш ID указан в `OWNER` или `AUTHORIZED_USER` и в нём только цифры.
-
-**«Видео слишком большое».**
-Telegram принимает файлы до 2 ГБ. Выберите в `/settings` качество «Среднее» или «Экономное».
-
-**Перестал скачивать какой-то сайт.**
-Обычно сайт что-то поменял, а yt-dlp ещё не обновился. Перезапустите бот командой `docker compose restart`: при старте он поставит свежий yt-dlp. Если не помогло, поищите проблему в [issues yt-dlp](https://github.com/yt-dlp/yt-dlp/issues).
-
-**`docker-credential-osxkeychain: executable file not found` (macOS + OrbStack, сборка по SSH).**
-В SSH-сессии нет пути к утилитам OrbStack. Перед командами выполните:
-```bash
-export PATH="$HOME/.orbstack/bin:$PATH"
-```
-
-**После перезагрузки компьютера бот не запустился.**
-Включите автозапуск Docker или OrbStack при входе в систему.
+On macOS, disable sleep in **System Settings → Energy**, and start OrbStack or Docker Desktop at login. The container restarts by itself (`restart: unless-stopped`).

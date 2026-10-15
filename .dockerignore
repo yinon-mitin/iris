@@ -1,5 +1,14 @@
-env
+.git
+.github
+.env
+data
+docs
+assets
+tests
+scripts
 venv
-db_data
-.ash_history
+.venv
+**/__pycache__
+**/*.session*
+youtube-cookies.txt
 .DS_Store

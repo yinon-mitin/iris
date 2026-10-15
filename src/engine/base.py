@@ -201,7 +201,8 @@ class BaseDownloader(ABC):
             for item in video_streams.get("streams", []):
                 height = item["height"]
                 width = item["width"]
-            duration = int(float(video_streams["format"]["duration"]))
+            # images have no duration; that is normal, not an error
+            duration = int(float(video_streams["format"].get("duration") or 0))
         except Exception as e:
             logging.error("Error while getting metadata: %s", e)
         try:

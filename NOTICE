@@ -1,5 +1,5 @@
-ytdlbot — private Russian-language edition
-https://github.com/yinon-mitin/ytdlbot
+Iris — private Telegram downloader
+https://github.com/yinon-mitin/iris
 Copyright 2026 Yinon Mitin
 
 This project is a modified version of ytdlbot
@@ -7,10 +7,19 @@ https://github.com/tgbot-collection/ytdlbot
 Copyright Benny <benny.think@gmail.com> and the tgbot-collection contributors
 Licensed under the Apache License, Version 2.0 (see LICENSE).
 
-Changes made in this edition (see git history for details):
-- Private mode: every command and button is limited to OWNER and AUTHORIZED_USER
+Changes made in Iris (see git history for details):
+- Private mode: every command, message and button is limited to the owner and an allow list;
+  access managed from the bot with one-time invite links, /adduser, /deluser, /users and
+  Allow/Deny notifications
 - Russian user interface: texts, progress bar, statuses, settings menu, error messages, command menu
 - Quality setting and full titles for VK, OK.ru and other non-YouTube sites
+- Instagram photo posts and carousels sent as albums; files sent by their real type
+  (video, photo, audio, document); albums over 10 items split
+- Downloads deleted as soon as a job ends; hourly sweep of leftovers; uploads retried without
+  resending delivered album parts; progress updated every 1.5 s and removed when done
+- Egress firewall that blocks the home network, tailnet and Docker host (SSRF protection),
+  fail-closed, with the bot process running without NET_ADMIN
 - yt-dlp nightly with automatic daily updates inside the container
 - Single-container setup: SQLite and in-memory cache instead of MySQL and Redis
+- Tests, CI, bilingual documentation, new name, logo and banner
 - Removed upstream donation, deployment and Docker Hub publishing files
