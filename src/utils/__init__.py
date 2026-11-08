@@ -70,6 +70,22 @@ def is_instagram(url: str) -> bool:
         return False
 
 
+def _host_in(url: str, domains: tuple[str, ...]) -> bool:
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    return any(host == d or host.endswith("." + d) for d in domains)
+
+
+def is_x(url: str) -> bool:
+    return _host_in(url, ("x.com", "twitter.com"))
+
+
+def is_threads(url: str) -> bool:
+    return _host_in(url, ("threads.com", "threads.net"))
+
+
 def is_internal_url(url: str) -> bool:
     """True if the link points to a private/local address (home network, tailnet, Docker host).
     The container firewall blocks these anyway (also via redirects); this gives a clear answer."""

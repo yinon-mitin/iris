@@ -31,6 +31,7 @@ Downloading a video from VK, OK.ru or Instagram is surprisingly hard for non-tec
 | 🔒 **Private** | Only the owner and approved people can use it. Access is managed from the bot: one-time `/invite` links, `/adduser`, or an **Allow** button when a stranger presses Start. |
 | 🎬 **Video up to 2 GB** | Uploads through MTProto, not the 50 MB Bot API limit. YouTube, VK, OK.ru, Rutube, Dzen, TikTok, Instagram reels and [hundreds of other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md). |
 | 🖼 **Photos and albums** | Instagram photo posts and carousels arrive as a Telegram album, in post order and at full size. |
+| 🐦 **X and Threads** | Send a link to a post on X (Twitter) or Threads: its video, or all its photos as an album, arrives in the chat. |
 | 📄 **Any file** | A direct link to a PDF, archive, image or song is sent as a document, photo or audio track, whatever the file really is. |
 | ⚙️ **Best quality that plays** | The sharpest H.264 within 1080p, 720p or 480p (counted on the short side, so portrait clips are not penalised). H.264 gets a smooth preview in Telegram; VP9/AV1 is used only when a site has nothing else. Never re-encoded, and a long film drops a step in resolution by itself to stay under 2 GB. |
 | 🧹 **Nothing stored** | Downloads are deleted as soon as the upload ends. A failed upload is retried up to three times first, without resending album parts that already arrived. |

@@ -10,7 +10,7 @@ Iris is a single Python process in a single container. It talks to Telegram over
 | --- | --- | --- |
 | Entrypoint | `docker-entrypoint.sh` | Sets the egress firewall, installs yt-dlp nightly, starts the daily updater, then runs the bot without `NET_ADMIN` |
 | Bot and handlers | `src/main.py` | Access gate, commands, link handling, owner tools (`/invite`, `/adduser`, …), scheduler |
-| Download engines | `src/engine/` | `generic.py` (yt-dlp, any supported site and direct file links), `direct.py` (`/direct`: requests or aria2), `pixeldrain.py`, `krakenfiles.py`, `instagram.py` (`/spdl`) |
+| Download engines | `src/engine/` | `generic.py` (yt-dlp, any supported site and direct file links), `direct.py` (`/direct`: requests or aria2), `pixeldrain.py`, `krakenfiles.py`, `social.py` (photos and Threads posts), `instagram.py` (`/spdl`) |
 | Job lifecycle | `src/engine/base.py` | Progress, file-type detection, upload with retries, album splitting, cleanup |
 | Helpers | `src/utils/` | URL checks, MIME detection, formatting, temp sweep |
 | Texts | `src/config/constant.py` | Every user-facing message (Russian, HTML) |
@@ -70,6 +70,8 @@ Captions follow the type: duration and resolution for video, duration for audio,
 
 **Instagram.** yt-dlp extracts only videos, so a photo post failed with *No video formats found*. For Instagram links the bot lets yt-dlp download the video items, skips photo items with a match filter, then fetches each photo at full size from the post metadata. Files are numbered by position, so carousel items never overwrite each other and arrive in order.
 
+**X and Threads.** yt-dlp saves X videos but not photos, and has no Threads extractor, so `social.py` fills the gap. For an X link yt-dlp goes first; if it finds no video (a photo-only tweet) or fails on a link card, the photos are read from the public [FxTwitter](https://github.com/FxEmbed/FxEmbed) API at original size. Threads has no API without a login, so the bot reads the public embed page of the post (`threads.com/t/<code>/embed`) and takes its photos and videos in post order; that page is only served to a short `User-Agent`. Files are numbered by position like Instagram carousels. A post with both a video and photos on X sends the video only.
+
 ## Upload, retries and cleanup
 
 - **Retries.** An upload is tried up to three times with a growing pause. Flood-wait requests from Telegram are honoured. Errors that cannot improve (e.g. a file over 2 GB) are not retried.
@@ -121,5 +123,6 @@ The database stores no links and no download history. Links appear only in the c
 - Telegram uploads are limited to 2 GB per file.
 - Web pages that are not media (articles, profiles) are not supported; only media and direct file links are.
 - Some sites need an account: Reddit and private or age-restricted videos require cookies.
-- Image-only posts on X/Twitter and TikTok photo slideshows are not handled like Instagram yet.
+- TikTok photo slideshows are not handled like Instagram yet.
+- X photos depend on the third-party FxTwitter API and Threads on the shape of its embed page; if either changes, the bot answers that the post has no media until `social.py` is updated.
 - There are no daily download limits; anyone allowed can use all workers. Keep access invite-based.

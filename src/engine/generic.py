@@ -12,9 +12,10 @@ import requests
 import yt_dlp
 
 from config import AUDIO_FORMAT, BotText
-from utils import FriendlyError, detect_format, is_instagram, is_youtube
+from utils import FriendlyError, detect_format, is_instagram, is_threads, is_x, is_youtube
 from database.model import get_format_settings, get_quality_settings
 from engine.base import BaseDownloader
+from engine.social import download_media, fetch_threads_media, fetch_x_photos
 
 
 def match_filter(info_dict):
@@ -121,6 +122,9 @@ class YoutubeDownload(BaseDownloader):
             # Always use the `source` format for Google Drive URLs (only the first format string is used).
             formats = [f"source/{formats[0]}"]
 
+        if is_threads(self._url):
+            return self._download_social(fetch_threads_media(self._url))
+
         files = None
         for f in formats:
             ydl_opts["format"] = f
@@ -129,6 +133,9 @@ class YoutubeDownload(BaseDownloader):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(self._url, download=True)
             except yt_dlp.utils.DownloadError as e:
+                # a tweet with photos only has no video for yt-dlp (or only a link card that fails): take the photos
+                if is_x(self._url) and (photos := fetch_x_photos(self._url)):
+                    return self._download_social(photos)
                 # file hosts behind Cloudflare: retry once pretending to be a real browser
                 if "generic:impersonate" not in str(e):
                     raise
@@ -147,6 +154,18 @@ class YoutubeDownload(BaseDownloader):
         for i, f in enumerate(files):
             if f.suffix == ".unknown_video" and (ext := filetype.guess_extension(f)):
                 files[i] = f.rename(f.with_suffix(f".{ext}"))
+        self._format = detect_format(files, self._format)
+        return files
+
+    def _download_social(self, media) -> list:
+        """Save the photos/videos of an X or Threads post, in the order of the post."""
+        if not media:
+            raise FriendlyError(BotText.error_no_media)
+
+        def progress(done, total):
+            self.download_hook({"status": "downloading", "downloaded_bytes": done, "total_bytes": total})
+
+        files = download_media(media, self._tempdir.name, progress)
         self._format = detect_format(files, self._format)
         return files
 
