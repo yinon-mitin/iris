@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 import filetype
 import requests
 
+from utils import is_threads
+
 FXTWITTER_API = "https://api.fxtwitter.com/i/status/{}"
 THREADS_EMBED = "https://www.threads.com/t/{}/embed"
 # a full browser User-Agent gets the JavaScript app shell from Threads, without the media; a short one gets the embed
@@ -84,8 +86,18 @@ def parse_threads_embed(page: str) -> list[Media]:
     return parser.media
 
 
+def resolve_threads_share(url: str, get=requests.get) -> str:
+    """The Share button gives threads.com/share/<id>, which redirects to the post. Follow that one redirect,
+    and only if it stays on Threads."""
+    if not urlparse(url).path.startswith("/share/"):
+        return url
+    resp = get(url, headers={"User-Agent": USER_AGENT}, allow_redirects=False, timeout=30)
+    location = resp.headers.get("location") or ""
+    return location if 300 <= resp.status_code < 400 and is_threads(location) else url
+
+
 def fetch_threads_media(url: str) -> list[Media]:
-    embed = threads_embed_url(url)
+    embed = threads_embed_url(resolve_threads_share(url))
     if not embed:
         return []
     resp = requests.get(embed, headers={"User-Agent": USER_AGENT}, timeout=30)

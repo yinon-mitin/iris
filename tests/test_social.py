@@ -4,6 +4,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 
 from engine.social import (
     Media,
@@ -11,6 +12,7 @@ from engine.social import (
     fxtwitter_url,
     parse_fxtwitter_photos,
     parse_threads_embed,
+    resolve_threads_share,
     threads_embed_url,
 )
 from utils import is_threads, is_x
@@ -85,6 +87,40 @@ class ThreadsEmbedUrlTest(unittest.TestCase):
 
     def test_profile_link_is_not_a_post(self):
         self.assertIsNone(threads_embed_url("https://www.threads.com/@nasa"))
+
+
+class ThreadsShareTest(unittest.TestCase):
+    """The Share button gives threads.com/share/<id>, which redirects to the post."""
+
+    SHARE = "https://www.threads.com/share/_wSEYlmQ-"
+    POST = "https://www.threads.com/@makajonak/post/DfeSS4fiN3z?xmt=AQG&slof=1"
+
+    @staticmethod
+    def get_returning(status, location=None):
+        def get(url, **kwargs):
+            assert kwargs.get("allow_redirects") is False  # never follow a redirect off Threads
+            return SimpleNamespace(status_code=status, headers={"location": location} if location else {})
+
+        return get
+
+    def test_share_link_resolves_to_the_post(self):
+        self.assertEqual(resolve_threads_share(self.SHARE, self.get_returning(302, self.POST)), self.POST)
+
+    def test_share_link_is_not_a_post_before_resolving(self):
+        self.assertIsNone(threads_embed_url(self.SHARE))
+        self.assertEqual(threads_embed_url(self.POST), "https://www.threads.com/t/DfeSS4fiN3z/embed")
+
+    def test_redirect_to_another_site_is_not_followed(self):
+        self.assertEqual(resolve_threads_share(self.SHARE, self.get_returning(302, "https://evil.example.org/x")), self.SHARE)
+
+    def test_no_redirect_keeps_the_link(self):
+        self.assertEqual(resolve_threads_share(self.SHARE, self.get_returning(200)), self.SHARE)
+
+    def test_post_links_are_not_requested(self):
+        def get(*args, **kwargs):
+            raise AssertionError("no request needed")
+
+        self.assertEqual(resolve_threads_share(self.POST, get), self.POST)
 
 
 class ParseThreadsEmbedTest(unittest.TestCase):
