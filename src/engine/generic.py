@@ -5,6 +5,8 @@
 
 import logging
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import filetype
@@ -15,7 +17,7 @@ from config import AUDIO_FORMAT, BotText
 from utils import FriendlyError, detect_format, is_instagram, is_threads, is_x, is_youtube
 from database.model import get_format_settings, get_quality_settings
 from engine.base import BaseDownloader
-from engine.social import download_media, fetch_threads_media, fetch_x_photos
+from engine.social import arrange_in_post_order, download_media, fetch_threads_media, fetch_x_media
 
 
 def match_filter(info_dict):
@@ -122,6 +124,9 @@ class YoutubeDownload(BaseDownloader):
             # Always use the `source` format for Google Drive URLs (only the first format string is used).
             formats = [f"source/{formats[0]}"]
 
+        if is_x(self._url):
+            # tweets with several videos: name the files by position, like Instagram carousels
+            ydl_opts["outtmpl"] = Path(self._tempdir.name, "%(playlist_index|0)02d_%(id)s.%(ext)s").as_posix()
         if is_threads(self._url):
             return self._download_social(fetch_threads_media(self._url))
 
@@ -134,7 +139,7 @@ class YoutubeDownload(BaseDownloader):
                     info = ydl.extract_info(self._url, download=True)
             except yt_dlp.utils.DownloadError as e:
                 # a tweet with photos only has no video for yt-dlp (or only a link card that fails): take the photos
-                if is_x(self._url) and (photos := fetch_x_photos(self._url)):
+                if is_x(self._url) and (photos := [m for m in fetch_x_media(self._url) if m.kind == "photo"]):
                     return self._download_social(photos)
                 # file hosts behind Cloudflare: retry once pretending to be a real browser
                 if "generic:impersonate" not in str(e):
@@ -145,6 +150,8 @@ class YoutubeDownload(BaseDownloader):
             self._title = (info or {}).get("title") or getattr(self, "_title", None)
             if instagram:
                 self._download_photos(info)
+            if is_x(self._url):
+                self._add_x_photos()
             files = sorted(Path(self._tempdir.name).glob("*"))
             break
 
@@ -168,6 +175,26 @@ class YoutubeDownload(BaseDownloader):
         files = download_media(media, self._tempdir.name, progress)
         self._format = detect_format(files, self._format)
         return files
+
+    def _add_x_photos(self):
+        """yt-dlp saved the video of a tweet; if the tweet also has photos, add them in the order of the tweet."""
+        media = fetch_x_media(self._url)
+        if not any(m.kind == "photo" for m in media):
+            return
+        directory = Path(self._tempdir.name)
+        videos = sorted(p for p in directory.glob("*") if p.is_file())
+        photo_dir = Path(tempfile.mkdtemp(dir=directory))
+        try:
+            def progress(done, total):
+                self.download_hook({"status": "downloading", "downloaded_bytes": done, "total_bytes": total})
+
+            photos = download_media([m for m in media if m.kind == "photo"], photo_dir, progress)
+            arrange_in_post_order([m.kind for m in media], videos, photos, directory)
+        except Exception:
+            # the video is the main result: a failing photo must not take it away
+            logging.warning("Could not add the photos of %s", self._url, exc_info=True)
+        finally:
+            shutil.rmtree(photo_dir, ignore_errors=True)
 
     def _download_photos(self, info):
         # yt-dlp extracts only videos; Instagram photos are exposed as the entry thumbnail

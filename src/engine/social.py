@@ -35,16 +35,39 @@ def fxtwitter_url(url: str) -> str | None:
     return FXTWITTER_API.format(match.group(1)) if match else None
 
 
-def parse_fxtwitter_photos(payload: dict) -> list[Media]:
-    """Tweet photos in original size. Videos are left to yt-dlp, which picks the best H.264."""
+def parse_fxtwitter_media(payload: dict) -> list[Media]:
+    """Everything in a tweet, in the order of the tweet. Photos in original size; a GIF is a video, as on X."""
     media = ((payload or {}).get("tweet") or {}).get("media") or {}
-    photos = []
+    items = []
     for item in media.get("all") or []:
         url = item.get("url") or ""
-        if item.get("type") != "photo" or not url.startswith("https://"):
+        if not url.startswith("https://"):
             continue
-        photos.append(Media("photo", url if "?" in url else url + "?name=orig"))
-    return photos
+        if item.get("type") == "photo":
+            items.append(Media("photo", url if "?" in url else url + "?name=orig"))
+        elif item.get("type") in ("video", "gif"):
+            items.append(Media("video", url))
+    return items
+
+
+def parse_fxtwitter_photos(payload: dict) -> list[Media]:
+    """Only the photos: videos are left to yt-dlp, which picks the best H.264."""
+    return [m for m in parse_fxtwitter_media(payload) if m.kind == "photo"]
+
+
+def arrange_in_post_order(kinds: list[str], videos: list[Path], photos: list[Path], directory: str | Path) -> list[Path]:
+    """Name the files 01.ext, 02.ext, ... in the order of the tweet: kinds says whether each place is a photo or a
+    video. Files the list has no place for (it was shorter than expected) go last, videos first."""
+    videos, photos = list(videos), list(photos)
+    ordered = []
+    for kind in kinds:
+        source = photos if kind == "photo" else videos
+        if source:
+            ordered.append(source.pop(0))
+    ordered += videos + photos
+    # two steps, because a final name can be the current name of another file
+    parked = [path.rename(Path(directory, f"parked-{number}{path.suffix}")) for number, path in enumerate(ordered)]
+    return [path.rename(Path(directory, f"{number:02d}{path.suffix}")) for number, path in enumerate(parked, 1)]
 
 
 def threads_embed_url(url: str) -> str | None:
@@ -105,7 +128,7 @@ def fetch_threads_media(url: str) -> list[Media]:
     return parse_threads_embed(resp.text)
 
 
-def fetch_x_photos(url: str) -> list[Media]:
+def fetch_x_media(url: str) -> list[Media]:
     api = fxtwitter_url(url)
     if not api:
         return []
@@ -113,7 +136,7 @@ def fetch_x_photos(url: str) -> list[Media]:
     try:
         resp = requests.get(api, headers={"User-Agent": USER_AGENT}, timeout=30)
         resp.raise_for_status()
-        return parse_fxtwitter_photos(resp.json())
+        return parse_fxtwitter_media(resp.json())
     except (requests.RequestException, ValueError):
         return []
 

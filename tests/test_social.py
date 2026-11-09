@@ -8,8 +8,10 @@ from types import SimpleNamespace
 
 from engine.social import (
     Media,
+    arrange_in_post_order,
     download_media,
     fxtwitter_url,
+    parse_fxtwitter_media,
     parse_fxtwitter_photos,
     parse_threads_embed,
     resolve_threads_share,
@@ -190,6 +192,29 @@ class FxTwitterTest(unittest.TestCase):
             ],
         )
 
+    def test_all_media_keep_the_order_of_the_tweet(self):
+        payload = {
+            "tweet": {
+                "media": {
+                    "all": [
+                        {"type": "photo", "url": "https://pbs.twimg.com/media/AAA.jpg"},
+                        {"type": "video", "url": "https://video.twimg.com/x.mp4"},
+                        {"type": "gif", "url": "https://video.twimg.com/g.mp4"},
+                        {"type": "photo", "url": "https://pbs.twimg.com/media/BBB.jpg?name=small"},
+                    ]
+                }
+            }
+        }
+        self.assertEqual(
+            parse_fxtwitter_media(payload),
+            [
+                Media("photo", "https://pbs.twimg.com/media/AAA.jpg?name=orig"),
+                Media("video", "https://video.twimg.com/x.mp4"),
+                Media("video", "https://video.twimg.com/g.mp4"),
+                Media("photo", "https://pbs.twimg.com/media/BBB.jpg?name=small"),
+            ],
+        )
+
     def test_tweet_without_media(self):
         self.assertEqual(parse_fxtwitter_photos({"code": 200, "tweet": {"text": "hi"}}), [])
         self.assertEqual(parse_fxtwitter_photos({"code": 404, "message": "NOT_FOUND"}), [])
@@ -236,6 +261,38 @@ class DownloadMediaTest(unittest.TestCase):
     def test_failed_download_raises(self):
         with tempfile.TemporaryDirectory() as tmp, self.assertRaises(Exception):
             download_media([Media("photo", self.base + "/missing")], tmp)
+
+
+class ArrangeTest(unittest.TestCase):
+    """A tweet with both photos and a video: yt-dlp saves the video, the photos come separately."""
+
+    def make(self, directory, name, data):
+        path = Path(directory, name)
+        path.write_bytes(data)
+        return path
+
+    def test_files_follow_the_order_of_the_tweet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            video = self.make(tmp, "Some title.mp4", MP4)
+            photos = [self.make(tmp, "01.jpg", JPG), self.make(tmp, "02.png", PNG)]  # same names as the result
+            files = arrange_in_post_order(["photo", "video", "photo"], [video], photos, tmp)
+            self.assertEqual([f.name for f in files], ["01.jpg", "02.mp4", "03.png"])
+            self.assertEqual([f.read_bytes() for f in files], [JPG, MP4, PNG])
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ["01.jpg", "02.mp4", "03.png"])
+
+    def test_two_videos_keep_their_own_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first, second = self.make(tmp, "a.mp4", MP4 + b"1"), self.make(tmp, "b.mp4", MP4 + b"2")
+            photo = self.make(tmp, "01.jpg", JPG)
+            files = arrange_in_post_order(["video", "photo", "video"], [first, second], [photo], tmp)
+            self.assertEqual([f.read_bytes() for f in files], [MP4 + b"1", JPG, MP4 + b"2"])
+
+    def test_files_missing_from_the_list_go_last(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            video = self.make(tmp, "v.mp4", MP4)
+            photos = [self.make(tmp, "p1.jpg", JPG), self.make(tmp, "p2.jpg", JPG + b"2")]
+            files = arrange_in_post_order(["photo"], [video], photos, tmp)
+            self.assertEqual([f.read_bytes() for f in files], [JPG, MP4, JPG + b"2"])
 
 
 if __name__ == "__main__":

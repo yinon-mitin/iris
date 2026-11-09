@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - X and Threads in the bot help text and in the English and Russian docs.
 
 ### Changed
+- A tweet that mixes a video with photos is sent as one album in the order of the tweet (it used to send the video only). If the photos cannot be fetched, the video is still sent.
 - The "unsupported link" message no longer says the site is not supported and no longer lists only VK, OK and YouTube: it names more sites (YouTube, TikTok, Instagram, X, Threads, VK) and asks to check that the link points to a video or post. The help text lists TikTok too.
 - The known-limitations note about image-only X posts is replaced by a note on the FxTwitter and Threads embed dependencies.
 
