@@ -20,6 +20,8 @@ from urllib.parse import quote_plus, urlparse
 import ffmpeg
 import filetype
 
+from config import TMPFILE_PATH
+
 
 class FriendlyError(Exception):
     """Error whose text is already written for the end user (in Russian) and is shown as is."""

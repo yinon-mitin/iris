@@ -16,5 +16,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The known-limitations note about image-only X posts is replaced by a note on the FxTwitter and Threads embed dependencies.
 
 ### Fixed
+- The hourly clean-up of leftover download folders crashed with `NameError: TMPFILE_PATH` and never ran, so folders of failed downloads piled up in the temp directory. `utils` now imports the setting (`tests/test_cleanup.py`).
 - Threads links from the Share button (`threads.com/share/<id>`) are resolved to the post before reading it.
 - X posts with photos whose yt-dlp error is "Media #1 is not a video" or "No video could be found" now fall back to the photos.
